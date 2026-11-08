@@ -42,7 +42,7 @@
                     <StackPanel Margin="10,0,0,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="ClipForge" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
-                            <Border CornerRadius="6" Padding="7,2" Margin="8,0,0,0" Background="{DynamicResource GreenSoftBrush}" VerticalAlignment="Center">
+                            <Border CornerRadius="6" Padding="7,2" Margin="8,0,0,0" Background="{DynamicResource AccentSoftBrush}" VerticalAlignment="Center">
                                 <Border.Style>
                                     <Style TargetType="Border">
                                         <Setter Property="Visibility" Value="Collapsed" />
@@ -53,17 +53,17 @@
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
-                                <TextBlock Text="{Binding CaptureModeBanner}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource GreenBrush}" />
+                                <TextBlock Text="{Binding CaptureModeBanner}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" />
                             </Border>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
                             <TextBlock Text="Panel rápido  ·  " FontSize="11" Foreground="{DynamicResource MutedBrush}" />
-                            <TextBlock Text="{Binding PasteDestinationHint}" FontSize="11" Foreground="{DynamicResource GreenBrush}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding PasteDestinationHint}" FontSize="11" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" />
                         </StackPanel>
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button x:Name="PinButton" Content="&#xE840;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource GreenBrush}" Background="{DynamicResource GreenSoftBrush}" BorderThickness="0" Width="30" Height="30" ToolTip="Desfijar panel" Click="Pin_Click" />
+                    <Button x:Name="PinButton" Content="&#xE840;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource AccentSoftBrush}" BorderThickness="0" Width="30" Height="30" ToolTip="Desfijar panel" Click="Pin_Click" />
                     <Button Content="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource SoftTextBrush}" Background="Transparent" BorderThickness="0" Width="30" Height="30" Click="Close_Click" />
                 </StackPanel>
             </Grid>
@@ -76,7 +76,7 @@
 
             <Border Grid.Row="2" Background="{DynamicResource SoftSurfaceBrush}" CornerRadius="10" Padding="3" Margin="0,0,0,11">
                 <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                    <Button x:Name="AllFilterButton" Content="Todo" Style="{StaticResource FilterButton}" Background="{DynamicResource GreenSoftBrush}" Foreground="{DynamicResource GreenBrush}" FontWeight="SemiBold" Click="All_Click" />
+                    <Button x:Name="AllFilterButton" Content="Todo" Style="{StaticResource FilterButton}" Background="{DynamicResource AccentSoftBrush}" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" Click="All_Click" />
                     <Button x:Name="TextFilterButton" Grid.Column="1" Content="Texto" Style="{StaticResource FilterButton}" Click="Text_Click" />
                     <Button x:Name="ImageFilterButton" Grid.Column="2" Content="Imágenes" Style="{StaticResource FilterButton}" Click="Images_Click" />
                     <Button x:Name="DeveloperFilterButton" Grid.Column="3" Content="Dev" Style="{StaticResource FilterButton}" Click="Developer_Click" ToolTip="Código, JSON, SQL, comandos y enlaces" />
@@ -93,13 +93,13 @@
                                 <TextBlock Text="{Binding ShortPreview}" FontSize="12" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextBrush}" />
                                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0"><TextBlock Text="{Binding KindLabel}" FontSize="10" Foreground="{DynamicResource MutedBrush}" /><TextBlock Text="  ·  " FontSize="10" Foreground="{DynamicResource FaintTextBrush}" /><TextBlock Text="{Binding SourceApp, TargetNullValue=Portapapeles}" FontSize="10" Foreground="{DynamicResource MutedBrush}" /></StackPanel>
                             </StackPanel>
-                            <Button Grid.Column="2" Content="Pegar" Tag="{Binding}" Click="PasteClip_Click" Background="{DynamicResource GreenBrush}" Foreground="White" BorderThickness="0" Padding="11,7" FontSize="11" FontWeight="SemiBold" Cursor="Hand" VerticalAlignment="Center" />
+                            <Button Grid.Column="2" Content="Pegar" Tag="{Binding}" Click="PasteClip_Click" Background="{DynamicResource AccentBrush}" Foreground="White" BorderThickness="0" Padding="11,7" FontSize="11" FontWeight="SemiBold" Cursor="Hand" VerticalAlignment="Center" />
                         </Grid>
                     </DataTemplate></ListBox.ItemTemplate>
                 </ListBox>
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="290" IsHitTestVisible="False">
                     <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasClips}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></StackPanel.Style>
-                    <Border Width="44" Height="44" CornerRadius="14" Background="{DynamicResource GreenSoftBrush}" HorizontalAlignment="Center"><TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="{DynamicResource GreenBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
+                    <Border Width="44" Height="44" CornerRadius="14" Background="{DynamicResource AccentSoftBrush}" HorizontalAlignment="Center"><TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
                     <TextBlock Text="{Binding EmptyTitle}" FontSize="14" FontWeight="SemiBold" Margin="0,12,0,0" TextAlignment="Center" />
                     <TextBlock Text="{Binding EmptyDescription}" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0" TextAlignment="Center" />
                 </StackPanel>

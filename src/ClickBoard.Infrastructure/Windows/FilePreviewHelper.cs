@@ -279,3 +279,4 @@ public static class FilePreviewHelper
         SIIGBF_INCACHEONLY = 0x10
     }
 }
+

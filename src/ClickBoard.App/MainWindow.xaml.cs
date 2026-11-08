@@ -51,7 +51,10 @@ public partial class MainWindow : Window
             Show();
         if (WindowState == WindowState.Minimized)
             WindowState = WindowState.Normal;
+        Topmost = true;
         Activate();
+        Topmost = false;
+        Focus();
     }
 
     public void SetCapturePaused(bool paused) => _viewModel.IsCapturePaused = paused;
@@ -87,14 +90,145 @@ public partial class MainWindow : Window
         {
             SelectionMode = selectionMode,
             Margin = margin ?? new Thickness(0),
-            BorderThickness = new Thickness(1)
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(4)
         };
         if (height.HasValue)
             list.Height = height.Value;
-        list.SetResourceReference(BackgroundProperty, "SurfaceBrush");
+        list.SetResourceReference(BackgroundProperty, "InputSurfaceBrush");
         list.SetResourceReference(ForegroundProperty, "TextBrush");
         list.SetResourceReference(BorderBrushProperty, "LineBrush");
         return list;
+    }
+
+    internal (Grid RootLayout, StackPanel Page, StackPanel CardBody) CreateSubpageLayout(string breadcrumb, string title, string description, string? navActiveTag = null)
+    {
+        // Contenedor principal de dos columnas idéntico a PowerToys Settings y NetworkView
+        var rootGrid = new Grid();
+        rootGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(236) });
+        rootGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        // Columna izquierda: Barra de navegación lateral fija
+        var sidebarBorder = new Border
+        {
+            BorderThickness = new Thickness(0, 0, 1, 0)
+        };
+        sidebarBorder.SetResourceReference(Border.BackgroundProperty, "SidebarBrush");
+        sidebarBorder.SetResourceReference(Border.BorderBrushProperty, "LineBrush");
+
+        var sidebarDock = new DockPanel { Margin = new Thickness(12, 16, 12, 16), LastChildFill = false };
+
+        var backBottomBtn = new System.Windows.Controls.Button
+        {
+            Style = (Style)FindResource("NavButton"),
+            ToolTip = "Volver al historial principal"
+        };
+        DockPanel.SetDock(backBottomBtn, Dock.Bottom);
+        var backStack = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
+        backStack.Children.Add(new TextBlock { Text = "\uE72B", FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"), FontSize = 14, Width = 26, VerticalAlignment = VerticalAlignment.Center });
+        backStack.Children.Add(new TextBlock { Text = "Volver al historial", VerticalAlignment = VerticalAlignment.Center });
+        backBottomBtn.Content = backStack;
+        backBottomBtn.Click += (_, _) => ClosePage();
+        sidebarDock.Children.Add(backBottomBtn);
+
+        var navTopStack = new StackPanel();
+        DockPanel.SetDock(navTopStack, Dock.Top);
+        var sectionLabel = new TextBlock
+        {
+            Text = "HERRAMIENTAS",
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Margin = new Thickness(11, 4, 0, 8)
+        };
+        sectionLabel.SetResourceReference(ForegroundProperty, "MutedBrush");
+        navTopStack.Children.Add(sectionLabel);
+
+        void AddNavItem(string label, string glyph, Action click, bool isActive)
+        {
+            var btn = new System.Windows.Controls.Button { Style = (Style)FindResource("NavButton") };
+            var stack = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
+            var icon = new TextBlock { Text = glyph, FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"), FontSize = 14, Width = 26, VerticalAlignment = VerticalAlignment.Center };
+            var text = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center };
+            if (isActive)
+            {
+                btn.SetResourceReference(BackgroundProperty, "AccentSoftBrush");
+                icon.SetResourceReference(ForegroundProperty, "AccentBrush");
+                text.SetResourceReference(ForegroundProperty, "AccentBrush");
+                text.FontWeight = FontWeights.SemiBold;
+            }
+            stack.Children.Add(icon);
+            stack.Children.Add(text);
+            btn.Content = stack;
+            btn.Click += (_, _) => click();
+            navTopStack.Children.Add(btn);
+        }
+
+        AddNavItem("Proyectos", "\uE8B7", () => OpenProjects_Click(this, new RoutedEventArgs()), breadcrumb == "Proyectos");
+        AddNavItem("Recetas", "\uE943", () => OpenRecipes_Click(this, new RoutedEventArgs()), breadcrumb == "Recetas");
+        AddNavItem("Papelera", "\uE74D", () => OpenTrash_Click(this, new RoutedEventArgs()), breadcrumb == "Papelera");
+        AddNavItem("Reglas de pegado", "\uE8A5", () => OpenPasteRules_Click(this, new RoutedEventArgs()), breadcrumb.Contains("Reglas"));
+        AddNavItem("Atajos de favoritos", "\uE765", () => OpenFavoriteShortcuts_Click(this, new RoutedEventArgs()), breadcrumb.Contains("Atajos"));
+
+        sidebarDock.Children.Add(navTopStack);
+        sidebarBorder.Child = sidebarDock;
+        Grid.SetColumn(sidebarBorder, 0);
+        rootGrid.Children.Add(sidebarBorder);
+
+        // Columna derecha: Contenido con padding balanceado aprovechando el ancho
+        var contentGrid = new Grid { Margin = new Thickness(48, 28, 48, 28) };
+        Grid.SetColumn(contentGrid, 1);
+
+        var page = new StackPanel
+        {
+            MaxWidth = 1100,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch
+        };
+
+        var crumbBlock = new TextBlock
+        {
+            Text = $"ClipForge  /  {breadcrumb}",
+            FontSize = 12,
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+        crumbBlock.SetResourceReference(ForegroundProperty, "MutedBrush");
+        page.Children.Add(crumbBlock);
+
+        page.Children.Add(new TextBlock
+        {
+            Text = title,
+            FontSize = 26,
+            FontWeight = FontWeights.SemiBold
+        });
+
+        var descBlock = new TextBlock
+        {
+            Text = description,
+            FontSize = 13,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 6, 0, 20)
+        };
+        descBlock.SetResourceReference(ForegroundProperty, "MutedBrush");
+        page.Children.Add(descBlock);
+
+        var cardBody = new StackPanel();
+        var card = new Border
+        {
+            Style = (Style)FindResource("CardBorder"),
+            Padding = new Thickness(24, 20, 24, 20),
+            Child = cardBody
+        };
+        page.Children.Add(card);
+
+        var scroll = new ScrollViewer
+        {
+            Content = page,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+        };
+        contentGrid.Children.Add(scroll);
+        rootGrid.Children.Add(contentGrid);
+
+        return (rootGrid, page, cardBody);
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)
@@ -178,10 +312,13 @@ public partial class MainWindow : Window
         if (selected.Length == 0 && _viewModel.SelectedClip is { } current) selected = [current];
         if (selected.Length == 0) return;
         var description = selected.Length == 1 ? $"«{selected[0].ShortPreview}»" : $"{selected.Length} clips";
-        var result = System.Windows.MessageBox.Show(this,
-            $"¿Enviar {description} a la papelera? Podrás restaurarlos después.",
-            "Enviar a la papelera", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
-        if (result != MessageBoxResult.Yes) return;
+        var confirmed = ModernDialogWindow.ShowConfirm(this,
+            $"¿Enviar {description} a la papelera? Podrás restaurarlos después cuando los necesites.",
+            title: "Enviar a la papelera",
+            confirmText: "Enviar a la papelera",
+            cancelText: "Cancelar",
+            type: ModernDialogType.Danger);
+        if (!confirmed) return;
         try
         {
             var deleted = 0;
@@ -197,34 +334,85 @@ public partial class MainWindow : Window
         try
         {
             var clips = await _viewModel.GetTrashAsync();
-            var list = CreateThemedListBox(new Thickness(12), selectionMode: System.Windows.Controls.SelectionMode.Extended);
+            var (rootLayout, page, cardBody) = CreateSubpageLayout(
+                "Papelera",
+                "Papelera",
+                "Restaura clips eliminados o vacíalos definitivamente. Usa Ctrl o Mayús para seleccionar varios elementos.");
+
+            cardBody.Children.Add(new TextBlock { Text = "Conservación automática", FontSize = 14, FontWeight = FontWeights.SemiBold });
+            var retentionDesc = new TextBlock
+            {
+                Text = "Al elegir un plazo se borrarán automáticamente los clips que lo superen, incluidos los que ya están en la papelera.",
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 4, 0, 10)
+            };
+            retentionDesc.SetResourceReference(ForegroundProperty, "MutedBrush");
+            cardBody.Children.Add(retentionDesc);
+
+            var retention = new System.Windows.Controls.ComboBox
+            {
+                ItemsSource = new[] { "Nunca borrar automáticamente", "7 días", "30 días", "90 días" },
+                SelectedIndex = TrashRetentionDays switch { 7 => 1, 30 => 2, 90 => 3, _ => 0 },
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
+                MinWidth = 240,
+                Margin = new Thickness(0, 0, 0, 16)
+            };
+            cardBody.Children.Add(retention);
+
+            var list = CreateThemedListBox(new Thickness(0, 0, 0, 14), height: 320, selectionMode: System.Windows.Controls.SelectionMode.Extended);
             list.DisplayMemberPath = "ShortPreview";
             list.ItemsSource = clips;
-            var restore = new System.Windows.Controls.Button { Content = "Restaurar selección", Style = (Style)FindResource("SecondaryButton"), Margin = new Thickness(6) };
-            var delete = new System.Windows.Controls.Button { Content = "Eliminar definitivamente…", Style = (Style)FindResource("SecondaryButton"), Margin = new Thickness(6) };
-            var back = new System.Windows.Controls.Button { Content = "Volver", Style = (Style)FindResource("SecondaryButton"), Margin = new Thickness(6) };
-            var status = new TextBlock { Text = "Papelera · Ctrl o Mayús para seleccionar varios. Se muestran hasta 1000 clips.", Margin = new Thickness(12), TextWrapping = TextWrapping.Wrap };
-            var buttons = new WrapPanel(); buttons.Children.Add(restore); buttons.Children.Add(delete); buttons.Children.Add(back);
-            var panel = new DockPanel { Margin = new Thickness(20) }; DockPanel.SetDock(status, Dock.Top); DockPanel.SetDock(buttons, Dock.Bottom); panel.Children.Add(status); panel.Children.Add(buttons); panel.Children.Add(list);
-            var retentionPanel = new StackPanel { Margin = new Thickness(12) };
-            retentionPanel.Children.Add(new TextBlock { Text = "Conservación de la papelera", FontWeight = FontWeights.SemiBold });
-            retentionPanel.Children.Add(new TextBlock { Text = "Al elegir un plazo se borrarán automáticamente los clips que lo superen, incluidos los que ya están en la papelera. El plazo se cuenta desde su eliminación. Nunca es la opción inicial.", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,6,0,6) });
-            var retention = new System.Windows.Controls.ComboBox { ItemsSource = new[] { "Nunca borrar automáticamente", "7 días", "30 días", "90 días" }, SelectedIndex = TrashRetentionDays switch { 7 => 1, 30 => 2, 90 => 3, _ => 0 }, HorizontalAlignment = System.Windows.HorizontalAlignment.Left, MinWidth = 240 };
+            cardBody.Children.Add(list);
+
+            var status = new TextBlock
+            {
+                Text = "Se muestran hasta 1000 clips recientes en la papelera.",
+                FontSize = 12,
+                Margin = new Thickness(0, 0, 0, 14),
+                TextWrapping = TextWrapping.Wrap
+            };
+            status.SetResourceReference(ForegroundProperty, "MutedBrush");
+            cardBody.Children.Add(status);
+
             var restoringRetention = false;
             retention.SelectionChanged += (_, _) =>
             {
                 if (restoringRetention) return;
                 var days = retention.SelectedIndex switch { 1 => 7, 2 => 30, 3 => 90, _ => 0 };
                 var error = SaveTrashRetention?.Invoke(days) ?? (SaveTrashRetention is null ? "No se pudo guardar la preferencia." : null);
-                if (error is not null) { status.Text = error; restoringRetention = true; retention.SelectedIndex = TrashRetentionDays switch { 7 => 1, 30 => 2, 90 => 3, _ => 0 }; restoringRetention = false; }
-                else status.Text = days == 0 ? "Borrado automático desactivado." : $"Plazo aplicado: {days} días. Se revisa cada cinco minutos mientras la aplicación está abierta.";
+                if (error is not null)
+                {
+                    status.Text = error;
+                    restoringRetention = true;
+                    retention.SelectedIndex = TrashRetentionDays switch { 7 => 1, 30 => 2, 90 => 3, _ => 0 };
+                    restoringRetention = false;
+                }
+                else
+                {
+                    status.Text = days == 0 ? "Borrado automático desactivado." : $"Plazo aplicado: {days} días. Se revisa cada cinco minutos.";
+                }
             };
-            retentionPanel.Children.Add(retention); DockPanel.SetDock(retentionPanel, Dock.Top); panel.Children.Insert(1, retentionPanel);
+
+            var restore = new System.Windows.Controls.Button { Content = "Restaurar selección", Style = (Style)FindResource("PrimaryButton"), Margin = new Thickness(0, 0, 8, 0) };
+            var delete = new System.Windows.Controls.Button { Content = "Eliminar definitivamente…", Style = (Style)FindResource("SecondaryButton"), Margin = new Thickness(0, 0, 8, 0) };
+            var back = new System.Windows.Controls.Button { Content = "←  Volver al historial", Style = (Style)FindResource("SecondaryButton") };
+            var buttons = new WrapPanel();
+            buttons.Children.Add(restore);
+            buttons.Children.Add(delete);
+            buttons.Children.Add(back);
+            cardBody.Children.Add(buttons);
+
             async Task Run(bool permanent)
             {
                 var selected = list.SelectedItems.OfType<ClipboardClip>().ToArray();
                 if (selected.Length == 0) { status.Text = "Selecciona uno o más clips."; return; }
-                if (permanent && System.Windows.MessageBox.Show(this, $"¿Eliminar definitivamente {selected.Length} clips y sus copias locales identificadas como propias? Esta acción no se puede deshacer.", "Borrado definitivo", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes) return;
+                if (permanent && !ModernDialogWindow.ShowConfirm(this,
+                    $"¿Eliminar definitivamente {selected.Length} clips y sus copias locales identificadas como propias? Esta acción no se puede deshacer.",
+                    title: "Borrado definitivo",
+                    confirmText: "Eliminar definitivamente",
+                    cancelText: "Cancelar",
+                    type: ModernDialogType.Danger)) return;
                 restore.IsEnabled = delete.IsEnabled = false;
                 var completed = 0;
                 try
@@ -245,8 +433,10 @@ public partial class MainWindow : Window
                     catch (Exception exception) when (exception is IOException or Microsoft.Data.Sqlite.SqliteException) { status.Text = "No se pudo actualizar la papelera. Vuelve a abrirla."; }
                 }
             }
-            restore.Click += async (_, _) => await Run(false); delete.Click += async (_, _) => await Run(true);
-            back.Click += (_, _) => ClosePage(); ShowPage(panel);
+            restore.Click += async (_, _) => await Run(false);
+            delete.Click += async (_, _) => await Run(true);
+            back.Click += (_, _) => ClosePage();
+            ShowPage(rootLayout);
         }
         catch (Exception exception) when (exception is Microsoft.Data.Sqlite.SqliteException or IOException)
         { _viewModel.StatusMessage = "No se pudo abrir la papelera."; }
@@ -261,8 +451,11 @@ public partial class MainWindow : Window
             .GroupBy(f => f.Field, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Last().Value, StringComparer.OrdinalIgnoreCase);
 
-        var panel = new StackPanel { Margin = new Thickness(28), MaxWidth = 600, HorizontalAlignment = System.Windows.HorizontalAlignment.Left };
-        panel.Children.Add(new TextBlock { Text = "Filtros avanzados", FontSize = 22, Margin = new Thickness(0, 0, 0, 16) });
+        var (rootLayout, _, cardBody) = CreateSubpageLayout(
+            "Búsqueda",
+            "Filtros avanzados",
+            "Combina criterios por texto, tipo de contenido, etiqueta, aplicación de origen, proyecto o fecha.");
+
         var fields = new List<(string Key, System.Windows.Controls.TextBox Box)>();
         foreach (var (key, label) in new[]
         {
@@ -274,18 +467,21 @@ public partial class MainWindow : Window
             ("antes", "Antes de: AAAA-MM-DD (UTC)")
         })
         {
-            panel.Children.Add(new TextBlock { Text = label, Margin = new Thickness(0, 8, 0, 5) });
+            cardBody.Children.Add(new TextBlock { Text = label, FontSize = 12, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 8, 0, 5) });
             var initialValue = key.Length == 0 ? existing.Text : existingFilters.GetValueOrDefault(key, string.Empty);
             var box = new System.Windows.Controls.TextBox
             {
                 Style = (Style)FindResource("SearchBox"),
                 MaxLength = 200,
-                Text = initialValue
+                Text = initialValue,
+                Margin = new Thickness(0, 0, 0, 4)
             };
-            panel.Children.Add(box);
+            cardBody.Children.Add(box);
             fields.Add((key, box));
         }
-        var apply = new System.Windows.Controls.Button { Content = "Aplicar filtros", Style = (Style)FindResource("PrimaryButton"), Margin = new Thickness(0,18,0,8) };
+
+        var bar = new WrapPanel { Margin = new Thickness(0, 16, 0, 0) };
+        var apply = new System.Windows.Controls.Button { Content = "Aplicar filtros", Style = (Style)FindResource("PrimaryButton"), Margin = new Thickness(0, 0, 8, 0) };
         apply.Click += (_, _) =>
         {
             var date = fields.Last().Box.Text.Trim();
@@ -294,10 +490,19 @@ public partial class MainWindow : Window
             _viewModel.SearchText = string.Join(" ", fields.Where(field => !string.IsNullOrWhiteSpace(field.Box.Text)).Select(field => field.Key.Length == 0 ? field.Box.Text.Trim() : field.Key + ":\"" + field.Box.Text.Trim().Replace("\"", "") + "\""));
             ClosePage();
         };
-        var cancel = new System.Windows.Controls.Button { Content = "Volver", Style = (Style)FindResource("SecondaryButton") };
+        var clear = new System.Windows.Controls.Button { Content = "Limpiar filtros", Style = (Style)FindResource("SecondaryButton"), Margin = new Thickness(0, 0, 8, 0) };
+        clear.Click += (_, _) =>
+        {
+            _viewModel.SearchText = string.Empty;
+            ClosePage();
+        };
+        var cancel = new System.Windows.Controls.Button { Content = "←  Volver", Style = (Style)FindResource("SecondaryButton") };
         cancel.Click += (_, _) => ClosePage();
-        panel.Children.Add(apply); panel.Children.Add(cancel);
-        ShowPage(new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+        bar.Children.Add(apply);
+        bar.Children.Add(clear);
+        bar.Children.Add(cancel);
+        cardBody.Children.Add(bar);
+        ShowPage(rootLayout);
     }
     private async void CopySelected_Click(object sender, RoutedEventArgs e) => await _viewModel.CopySelectedAsync();
     private async void CombineSelected_Click(object sender, RoutedEventArgs e)

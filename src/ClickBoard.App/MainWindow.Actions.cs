@@ -24,28 +24,28 @@ public partial class MainWindow
             return;
         }
 
-        var panel = new StackPanel { Margin = new Thickness(28), MaxWidth = 650 };
-        panel.Children.Add(new TextBlock { Text = "Reglas por aplicación", FontSize = 22 });
-        panel.Children.Add(new TextBlock
-        {
-            Text = "Pegar como texto plano en estos procesos (separados por coma). Por ejemplo: WindowsTerminal, powershell, cmd. El resto conserva el formato del clip. Las imágenes y archivos conservan su tipo.",
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 12, 0, 12)
-        });
+        var (rootLayout, _, cardBody) = CreateSubpageLayout(
+            " Herramientas",
+            "Reglas de pegado por aplicación",
+            "Pega automáticamente como texto plano en estos procesos (separados por coma), por ejemplo: WindowsTerminal, powershell, cmd.");
+
+        cardBody.Children.Add(new TextBlock { Text = "Procesos con texto plano predeterminado", FontSize = 13, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 6) });
         var box = new TextBox
         {
             Style = (Style)FindResource("SearchBox"),
             Text = string.Join(", ", processes),
             MaxLength = 10000
         };
-        panel.Children.Add(box);
+        cardBody.Children.Add(box);
         var status = new TextBlock
         {
             Text = "Los cambios se guardan automáticamente tras una pausa al escribir.",
+            FontSize = 12,
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 12, 0, 12)
+            Margin = new Thickness(0, 10, 0, 14)
         };
-        panel.Children.Add(status);
+        status.SetResourceReference(ForegroundProperty, "MutedBrush");
+        cardBody.Children.Add(status);
 
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(650) };
         void Commit()
@@ -70,20 +70,20 @@ public partial class MainWindow
         };
         box.LostKeyboardFocus += (_, _) => Commit();
 
-        var back = new Button { Content = "Volver", Style = (Style)FindResource("SecondaryButton") };
+        var back = new Button { Content = "←  Volver al historial", Style = (Style)FindResource("SecondaryButton"), HorizontalAlignment = System.Windows.HorizontalAlignment.Left };
         back.Click += (_, _) =>
         {
             Commit();
             ClosePage();
         };
-        panel.Children.Add(back);
-        panel.Unloaded += (_, _) =>
+        cardBody.Children.Add(back);
+        cardBody.Unloaded += (_, _) =>
         {
             if (timer.IsEnabled)
                 Commit();
             timer.Stop();
         };
-        ShowPage(panel);
+        ShowPage(rootLayout);
     }
 
     private async void OpenActions_Click(object sender, RoutedEventArgs e)
@@ -100,16 +100,19 @@ public partial class MainWindow
 
         var peers = TransferService?.IsRunning == true ? TransferService.GetPeers() : [];
 
-        var panel = new StackPanel { Margin = new Thickness(28), MaxWidth = 650 };
-        panel.Children.Add(new TextBlock { Text = "Acciones", FontSize = 22, Margin = new Thickness(0, 0, 0, 12) });
+        var (rootLayoutPalette, _, cardBodyPalette) = CreateSubpageLayout(
+            "Paleta de comandos",
+            "Acciones rápidas (Ctrl + K)",
+            "Ejecuta comandos, envía clips a dispositivos de tu red local o cambia de espacio de proyecto con el teclado.");
+
         var query = new TextBox
         {
             Style = (Style)FindResource("SearchBox"),
             ToolTip = "Busca una acción, un dispositivo de red o un proyecto"
         };
-        panel.Children.Add(query);
+        cardBodyPalette.Children.Add(query);
         var rows = new StackPanel { Margin = new Thickness(0, 12, 0, 0) };
-        panel.Children.Add(rows);
+        cardBodyPalette.Children.Add(rows);
 
         var actions = new List<(string Title, Action Run)>
         {
@@ -178,8 +181,8 @@ public partial class MainWindow
                 var button = new Button
                 {
                     Content = action.Title,
-                    Style = (Style)FindResource("SecondaryButton"),
-                    Margin = new Thickness(0, 0, 0, 6)
+                    Style = (Style)FindResource("NavButton"),
+                    Margin = new Thickness(0, 0, 0, 4)
                 };
                 button.Click += (_, _) => action.Run();
                 rows.Children.Add(button);
@@ -198,7 +201,7 @@ public partial class MainWindow
             }
         };
         Render();
-        ShowPage(new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+        ShowPage(rootLayoutPalette);
         query.Focus();
     }
 }

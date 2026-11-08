@@ -1,29 +1,71 @@
 <Window x:Class="ClickBoard.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="ClipForge" Icon="/Assets/ClipForge.ico" Height="900" Width="1440" MinHeight="700" MinWidth="1120"
+        Title="ClipForge" Icon="/Assets/ClipForge.ico" Height="880" Width="1440" MinHeight="680" MinWidth="1100"
         Background="{DynamicResource CanvasBrush}" Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI" WindowStartupLocation="CenterScreen">
     <Grid>
-        <Grid.RowDefinitions><RowDefinition Height="82" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-        <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">
-            <Grid Margin="26,0">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="248" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="62" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Barra superior estilo PowerToys con buscador centrado -->
+        <Border Grid.Row="0" Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">
+            <Grid Margin="18,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="228" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Width="38" Height="38" CornerRadius="11" Background="{DynamicResource AccentBrush}" VerticalAlignment="Center">
-                        <Image Source="/Assets/ClipForge.ico" Width="38" Height="38" />
+                    <Border Width="32" Height="32" CornerRadius="8" Background="{DynamicResource AccentSoftBrush}" VerticalAlignment="Center">
+                        <Image Source="/Assets/ClipForge.ico" Width="22" Height="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
-                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="ClipForge" FontSize="17" FontWeight="Bold" />
-                        <TextBlock Text="Tu portapapeles para crear" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,1,0,0" />
+                    <StackPanel Margin="11,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="ClipForge" FontSize="14.5" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding ProjectLabel}" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" MaxWidth="165" />
                     </StackPanel>
                 </StackPanel>
-                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="Tu historial, siempre a mano" FontSize="16" FontWeight="SemiBold" />
-                    <TextBlock Text="Busca, organiza y reutiliza lo que copias." FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,3,0,0" />
-                    <TextBlock x:Name="CaptureStateText" Text="{Binding CaptureModeBanner}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Margin="0,3,0,0">
+
+                <!-- Buscador global centrado como en PowerToys -->
+                <Grid Grid.Column="1" MaxWidth="540" HorizontalAlignment="Stretch" VerticalAlignment="Center" Margin="16,0">
+                    <TextBox x:Name="MainSearchBox"
+                             Style="{StaticResource SearchBox}"
+                             Padding="14,5,82,5"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Buscar por contenido, título, proyecto o etiqueta (Ctrl+F)" />
+                    <TextBlock Text="Buscar clips, títulos o #etiquetas…"
+                               FontSize="12.5"
+                               Margin="15,0,85,0"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource MutedBrush}"
+                               IsHitTestVisible="False">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SearchText}" Value="">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" IsHitTestVisible="False">
+                        <Border Style="{StaticResource KeyBadge}" Margin="0,0,8,0">
+                            <TextBlock Text="Ctrl+F" FontSize="10" Foreground="{DynamicResource QuickKeyTextBrush}" />
+                        </Border>
+                        <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Acciones rápidas de ventana en la esquina superior derecha -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Background="{DynamicResource AccentSoftBrush}" CornerRadius="6" Padding="9,5" Margin="0,0,8,0" VerticalAlignment="Center">
+                        <Border.Style>
+                            <Style TargetType="Border">
                                 <Setter Property="Visibility" Value="Collapsed" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding HasCaptureModeBanner}" Value="True">
@@ -31,198 +73,599 @@
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                </StackPanel>
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Style="{StaticResource SecondaryButton}" Click="ToggleTemporaryMode_Click" Margin="0,0,9,0" ToolTip="Guarda las nuevas capturas solo en memoria durante esta sesión">
-                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="13" Margin="0,0,8,0" /><TextBlock Text="{Binding TemporaryModeButtonLabel}" /></StackPanel>
+                        </Border.Style>
+                        <TextBlock x:Name="CaptureStateText" Text="{Binding CaptureModeBanner}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" />
+                    </Border>
+                    <Button Style="{StaticResource ToolbarButton}" Click="ToggleTemporaryMode_Click" Margin="0,0,6,0" ToolTip="Guarda las nuevas capturas solo en memoria durante esta sesión">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBlock Text="{Binding TemporaryModeButtonLabel}" VerticalAlignment="Center" />
+                        </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource SecondaryButton}" Click="OpenDockedPanel_Click" Margin="0,0,9,0">
-                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE71B;" FontFamily="Segoe MDL2 Assets" FontSize="13" Margin="0,0,8,0" /><TextBlock Text="Panel lateral" /></StackPanel>
+                    <Button Style="{StaticResource ToolbarButton}" Click="OpenDockedPanel_Click" Margin="0,0,6,0" ToolTip="Abrir panel acoplado al borde del monitor">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE71B;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBlock Text="Panel lateral" VerticalAlignment="Center" />
+                        </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource PrimaryButton}" Click="OpenQuickPicker_Click">
-                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets" FontSize="13" Margin="0,0,8,0" /><TextBlock Text="Selector rápido" /></StackPanel>
+                    <Button Style="{StaticResource PrimaryButton}" Padding="12,6" FontSize="12" Click="OpenQuickPicker_Click" ToolTip="Abrir selector rápido flotante">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBlock Text="Selector rápido" VerticalAlignment="Center" />
+                        </StackPanel>
                     </Button>
                 </StackPanel>
             </Grid>
         </Border>
 
         <Grid x:Name="Workspace" Grid.Row="1">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="230" /><ColumnDefinition Width="*" /><ColumnDefinition Width="336" /></Grid.ColumnDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="236" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="360" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Barra lateral izquierda estilo PowerToys con iconos alineados en todas las entradas -->
             <Border Grid.Column="0" Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0">
-                <DockPanel Margin="18,22,18,18" LastChildFill="False">
+                <DockPanel Margin="12,14,12,14" LastChildFill="False">
                     <StackPanel DockPanel.Dock="Top">
-                        <TextBlock Text="ESPACIO PERSONAL" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}" Margin="10,0,0,11" />
-                        <Button x:Name="ClipboardNavButton" Style="{StaticResource NavButton}" Tag="Historial" Click="Navigate_Click" Background="{DynamicResource AccentSoftBrush}">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource AccentBrush}" Width="25" /><TextBlock Text="Historial" FontWeight="SemiBold" /></StackPanel>
+                        <TextBlock Text="PORTAPAPELES" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}" Margin="11,4,0,6" />
+                        <Button x:Name="ClipboardNavButton" Style="{StaticResource NavButton}" Tag="Historial" Click="Navigate_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE81C;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource AccentBrush}" Width="26" VerticalAlignment="Center" />
+                                <TextBlock Text="Historial" VerticalAlignment="Center" />
+                            </StackPanel>
                         </Button>
                         <Button x:Name="FavoritesNavButton" Style="{StaticResource NavButton}" Tag="Favoritos" Click="Navigate_Click">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE734;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource MutedBrush}" Width="25" /><TextBlock Text="Favoritos" /></StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE734;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#F2C94C" Width="26" VerticalAlignment="Center" />
+                                <TextBlock Text="Favoritos" VerticalAlignment="Center" />
+                            </StackPanel>
                         </Button>
                         <Button x:Name="DeveloperNavButton" Style="{StaticResource NavButton}" Tag="Desarrollo" Click="Navigate_Click">
-                            <StackPanel Orientation="Horizontal"><Border Width="25" Height="19" CornerRadius="4" BorderBrush="{DynamicResource MutedBrush}" BorderThickness="1"><TextBlock Text="DEV" FontSize="8" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border><TextBlock Text="Desarrollo" /></StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE943;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#56CCF2" Width="26" VerticalAlignment="Center" />
+                                <TextBlock Text="Desarrollo" VerticalAlignment="Center" />
+                            </StackPanel>
                         </Button>
                         <Button x:Name="ImagesNavButton" Style="{StaticResource NavButton}" Tag="Imágenes" Click="Navigate_Click">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xEB9F;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource MutedBrush}" Width="25" /><TextBlock Text="Imágenes" /></StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xEB9F;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#6FCF97" Width="26" VerticalAlignment="Center" />
+                                <TextBlock Text="Imágenes" VerticalAlignment="Center" />
+                            </StackPanel>
                         </Button>
-                        <Button Content="Papelera" Style="{StaticResource NavButton}" Click="OpenTrash_Click"/>
-                        <Button Content="Proyectos" Style="{StaticResource NavButton}" Click="OpenProjects_Click"/>
-                        <Button Content="Reglas de pegado" Style="{StaticResource NavButton}" Click="OpenPasteRules_Click"/>
-                        <Button Content="Atajos de favoritos" Style="{StaticResource NavButton}" Click="OpenFavoriteShortcuts_Click"/>
-                        <Button Content="Acciones · Ctrl + K" Style="{StaticResource NavButton}" Click="OpenActions_Click"/>
-                        <TextBlock Text="{Binding ProjectLabel}" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="10,8,0,8"/>
-                        <Button x:Name="NetworkNavButton" Style="{StaticResource NavButton}" Click="OpenNetwork_Click" Margin="0,16,0,3">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE968;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource MutedBrush}" Width="25" /><TextBlock Text="Red y contactos" /></StackPanel>
+                        <Button Style="{StaticResource NavButton}" Click="OpenTrash_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource MutedBrush}" Width="26" VerticalAlignment="Center" />
+                                <TextBlock Text="Papelera" VerticalAlignment="Center" />
+                            </StackPanel>
                         </Button>
-                        <Button x:Name="SettingsNavButton" Style="{StaticResource NavButton}" Click="OpenSettings_Click">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource MutedBrush}" Width="25" /><TextBlock Text="Configuración" /></StackPanel>
+
+                        <Border Height="1" Background="{DynamicResource LineBrush}" Margin="8,10" />
+                        <TextBlock Text="UTILIDADES" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}" Margin="11,0,0,6" />
+
+                        <Button Style="{StaticResource NavButton}" Click="OpenProjects_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE8F1;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#BB6BD9" Width="26" VerticalAlignment="Center" />
+                                <TextBlock Text="Proyectos" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource NavButton}" Click="OpenPasteRules_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE71C;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#F2994A" Width="26" VerticalAlignment="Center" />
+                                <TextBlock Text="Reglas de pegado" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource NavButton}" Click="OpenFavoriteShortcuts_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE765;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource AccentBrush}" Width="26" VerticalAlignment="Center" />
+                                <TextBlock Text="Atajos de favoritos" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource NavButton}" Click="OpenActions_Click">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE945;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#56CCF2" Width="26" VerticalAlignment="Center" />
+                                    <TextBlock Text="Paleta de acciones" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <Border Grid.Column="1" Style="{StaticResource KeyBadge}">
+                                    <TextBlock Text="Ctrl+K" FontSize="10" Foreground="{DynamicResource QuickKeyTextBrush}" />
+                                </Border>
+                            </Grid>
                         </Button>
                     </StackPanel>
-                    <Border DockPanel.Dock="Bottom" Background="{DynamicResource GreenCardBrush}" CornerRadius="12" Padding="13" Margin="0,16,0,0">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource GreenBrush}" FontSize="14" VerticalAlignment="Center" /><TextBlock Text="  Guardado en tu equipo" Foreground="{DynamicResource GreenBrush}" FontWeight="SemiBold" FontSize="12" /></StackPanel>
-                            <TextBlock Text="Comparte archivos cuando lo elijas." TextWrapping="Wrap" Foreground="{DynamicResource GreenCardTextBrush}" FontSize="11" Margin="0,8,0,0" />
-                        </StackPanel>
-                    </Border>
+
+                    <StackPanel DockPanel.Dock="Bottom">
+                        <Border Height="1" Background="{DynamicResource LineBrush}" Margin="8,8" />
+                        <Button x:Name="NetworkNavButton" Style="{StaticResource NavButton}" Click="OpenNetwork_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE968;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource GreenBrush}" Width="26" VerticalAlignment="Center" />
+                                <TextBlock Text="Red y contactos" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="SettingsNavButton" Style="{StaticResource NavButton}" Click="OpenSettings_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{DynamicResource MutedBrush}" Width="26" VerticalAlignment="Center" />
+                                <TextBlock Text="Configuración" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="8" Padding="11,9" Margin="4,8,4,0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="7" Height="7" Fill="{DynamicResource GreenBrush}" VerticalAlignment="Center" Margin="0,0,7,0" />
+                                    <TextBlock Text="Almacenamiento local" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="10.5" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </DockPanel>
             </Border>
 
-            <Grid Grid.Column="1" Margin="28,24,26,20">
-                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                <Grid Grid.Row="0" Margin="0,0,0,21">
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                    <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource MutedBrush}" FontSize="16" VerticalAlignment="Center" Margin="14,0,0,0" Panel.ZIndex="1" IsHitTestVisible="False" />
-                    <TextBox x:Name="MainSearchBox" Grid.ColumnSpan="2" Style="{StaticResource SearchBox}" Padding="41,5,64,5" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Buscar clips guardados" />
-                    <TextBlock Grid.ColumnSpan="2" Text="Buscar clips por contenido o título…" FontSize="15" Margin="42,0,75,0" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" IsHitTestVisible="False">
-                        <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding SearchText}" Value=""><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
-                    </TextBlock>
-                    <TextBlock Grid.Column="1" Text="Ctrl + F" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0" Foreground="{DynamicResource MutedBrush}" FontSize="11" IsHitTestVisible="False" />
+            <!-- Columna central: Encabezado limpio + Lista de tarjetas + Barra inferior única compacta -->
+            <Grid Grid.Column="1" Margin="26,20,24,18">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Encabezado de sección + Botones rápidos compactos -->
+                <Grid Grid.Row="0" Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding CurrentSection}" FontSize="24" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding SectionDescription}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,3,0,0" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Style="{StaticResource ToolbarButton}" Click="AdvancedFilters_Click" Margin="0,0,6,0" ToolTip="Filtrar por tipo, aplicación, etiqueta, proyecto o fecha">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE71C;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="Filtros" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ToolbarButton}" Click="OpenRecipes_Click" Margin="0,0,6,0" ToolTip="Recetas de transformación de texto">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE943;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="Recetas" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Click="LoadMore_Click" Margin="0,0,0,0">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource ToolbarButton}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasMore}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="Cargar más" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
                 </Grid>
-                <Grid Grid.Row="1" Margin="0,0,0,13">
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                    <StackPanel><TextBlock Text="{Binding CurrentSection}" FontSize="21" FontWeight="SemiBold" /><TextBlock Text="{Binding SectionDescription}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0" /></StackPanel>
-                    <TextBlock Grid.Column="1" Text="Favoritos primero · recientes" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                </Grid>
-                <Grid Grid.Row="2">
-                    <ListBox x:Name="ClipList" SelectionMode="Extended" Style="{StaticResource ClipListBox}" ItemContainerStyle="{StaticResource ClipListBoxItem}" ItemsSource="{Binding Clips}" SelectedItem="{Binding SelectedClip}" MouseDoubleClick="ClipList_DoubleClick" PreviewKeyDown="ClipList_PreviewKeyDown">
-                        <ListBox.ItemTemplate><DataTemplate>
-                            <Grid Margin="8,10,10,10">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="54" /><ColumnDefinition Width="*" /><ColumnDefinition Width="32" /></Grid.ColumnDefinitions>
-                                <Border Width="44" Height="44" CornerRadius="9" Background="{DynamicResource ThumbnailBrush}" VerticalAlignment="Center">
-                                    <Grid>
-                                        <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding ThumbnailBytes}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
-                                        </TextBlock>
-                                        <Image Source="{Binding ThumbnailBytes, Converter={StaticResource BytesToImageConverter}, ConverterParameter=128}" Stretch="UniformToFill" ClipToBounds="True" />
-                                    </Grid>
-                                </Border>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="4,0,10,0">
-                                    <StackPanel Orientation="Horizontal"><TextBlock Text="{Binding KindLabel}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" /><TextBlock Text="  ·  " Foreground="{DynamicResource MutedBrush}" FontSize="10" /><TextBlock Text="{Binding SourceApp, TargetNullValue=Portapapeles}" FontSize="10" Foreground="{DynamicResource MutedBrush}" /></StackPanel>
-                                    <TextBlock Text="{Binding ShortPreview}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
-                                    <TextBlock Text="{Binding CreatedAtUtc, StringFormat='{}{0:HH:mm}'}" FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0" />
-                                </StackPanel>
-                                <TextBlock Grid.Column="2" Text="&#xE734;" FontFamily="Segoe MDL2 Assets" Foreground="#C9A94D" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center">
-                                    <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsFavorite}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
-                                </TextBlock>
-                            </Grid>
-                        </DataTemplate></ListBox.ItemTemplate>
+
+                <!-- Lista de clips en tarjetas estilo PowerToys -->
+                <Grid Grid.Row="1">
+                    <ListBox x:Name="ClipList"
+                             SelectionMode="Extended"
+                             Style="{StaticResource ClipListBox}"
+                             ItemContainerStyle="{StaticResource ClipListBoxItem}"
+                             ItemsSource="{Binding Clips}"
+                             SelectedItem="{Binding SelectedClip}"
+                             MouseDoubleClick="ClipList_DoubleClick"
+                             PreviewKeyDown="ClipList_PreviewKeyDown">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="12,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="48" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="38" Height="38" CornerRadius="8" Background="{DynamicResource ThumbnailBrush}" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                        <Grid>
+                                            <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding ThumbnailBytes}" Value="{x:Null}">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <Image Source="{Binding ThumbnailBytes, Converter={StaticResource BytesToImageConverter}, ConverterParameter=128}" Stretch="UniformToFill" ClipToBounds="True" />
+                                        </Grid>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="4,0,12,0">
+                                        <TextBlock Text="{Binding ShortPreview}" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                            <Border Background="{DynamicResource AccentSoftBrush}" CornerRadius="4" Padding="6,1" Margin="0,0,7,0">
+                                                <TextBlock Text="{Binding KindLabel}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" />
+                                            </Border>
+                                            <TextBlock Text="{Binding SourceApp, TargetNullValue=Portapapeles}" FontSize="11" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                            <TextBlock Text="  ·  " Foreground="{DynamicResource FaintTextBrush}" FontSize="11" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding CreatedAtUtc, StringFormat='{}{0:HH:mm}'}" FontSize="11" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2" Text="&#xE735;" FontFamily="Segoe MDL2 Assets" Foreground="#F2C94C" FontSize="14" VerticalAlignment="Center" Margin="4,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
                     </ListBox>
+
+                    <!-- Estado vacío limpio y coherente con el tema oscuro -->
                     <Border Background="{DynamicResource CanvasBrush}" IsHitTestVisible="False">
-                        <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasClips}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Border.Style>
-                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="310">
-                            <Border Width="56" Height="56" CornerRadius="18" Background="{DynamicResource AccentSoftBrush}" HorizontalAlignment="Center"><TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
-                            <TextBlock Text="{Binding EmptyTitle}" FontSize="17" FontWeight="SemiBold" TextAlignment="Center" Margin="0,18,0,0" />
-                            <TextBlock Text="{Binding EmptyDescription}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,0" />
-                            <Border Background="White" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="9" Padding="11,8" HorizontalAlignment="Center" Margin="0,17,0,0"><TextBlock Text="Prueba Ctrl + C en cualquier app" FontSize="11" Foreground="{DynamicResource MutedBrush}" /></Border>
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasClips}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Border Style="{StaticResource CardBorder}" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="360" Padding="28,24">
+                            <StackPanel HorizontalAlignment="Center">
+                                <Border Width="48" Height="48" CornerRadius="12" Background="{DynamicResource AccentSoftBrush}" HorizontalAlignment="Center">
+                                    <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="{Binding EmptyTitle}" FontSize="16" FontWeight="SemiBold" TextAlignment="Center" Margin="0,14,0,0" />
+                                <TextBlock Text="{Binding EmptyDescription}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,6,0,14" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Border Style="{StaticResource KeyBadge}" Margin="0,0,4,0"><TextBlock Text="Ctrl" FontSize="11" Foreground="{DynamicResource QuickKeyTextBrush}" /></Border>
+                                    <TextBlock Text="+" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                    <Border Style="{StaticResource KeyBadge}" Margin="0,0,8,0"><TextBlock Text="C" FontSize="11" Foreground="{DynamicResource QuickKeyTextBrush}" /></Border>
+                                    <TextBlock Text="en cualquier aplicación para guardar" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </Border>
+                </Grid>
+
+                <!-- Barra de herramientas de lote unificada en una sola tarjeta horizontal (sin botones dispersos) -->
+                <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="12,8" Margin="0,12,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Cola secuencial -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Style="{StaticResource ToolbarButton}" Click="PrepareQueue_Click" Margin="0,0,5,0" ToolTip="Preparar cola de pegado con los clips seleccionados">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <TextBlock Text="Cola" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource ToolbarButton}" Click="ClearQueue_Click" ToolTip="Vaciar cola de pegado">
+                                <TextBlock Text="&#xE894;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center" />
+                            </Button>
+                        </StackPanel>
+
+                        <Border Grid.Column="1" Width="1" Height="22" Background="{DynamicResource LineBrush}" Margin="10,0" VerticalAlignment="Center" />
+
+                        <!-- Herramientas de unión y comparación de texto -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <ComboBox x:Name="CombineSeparator" SelectedIndex="0" Width="122" Margin="0,0,6,0" ToolTip="Separador al unir varios textos">
+                                <ComboBoxItem Content="Línea vacía" />
+                                <ComboBoxItem Content="Salto de línea" />
+                                <ComboBoxItem Content="Coma" />
+                                <ComboBoxItem Content="Tabulador" />
+                                <ComboBoxItem Content="Sin separador" />
+                            </ComboBox>
+                            <Button Style="{StaticResource ToolbarButton}" Click="CombineSelected_Click" Margin="0,0,6,0" ToolTip="Unir los clips de texto seleccionados y copiarlos">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <TextBlock Text="Unir" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource ToolbarButton}" Click="CompareSelected_Click" ToolTip="Comparar dos clips de texto línea por línea">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8AB;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <TextBlock Text="Comparar" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- Envío por red y exportación en lote -->
+                        <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Style="{StaticResource ToolbarButton}" Click="SendBatch_Click" Margin="0,0,6,0" ToolTip="Enviar los clips seleccionados a un dispositivo en tu red local">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE898;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <TextBlock Text="Enviar red" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource ToolbarButton}" Click="ExportBatch_Click" ToolTip="Exportar todos los clips seleccionados a una carpeta">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xEDE1;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <TextBlock Text="Exportar lote" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Columna derecha: Inspector y vista previa estilo PowerToys -->
+            <Border Grid.Column="2" Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1,0,0,0">
+                <Grid Margin="18,20,18,18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="INSPECTOR DE CLIP" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                        <Border Grid.Column="1" Background="{DynamicResource AccentSoftBrush}" CornerRadius="5" Padding="8,2">
+                            <TextBlock Text="{Binding SelectedClip.KindLabel, TargetNullValue=Sin selección}" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" />
+                        </Border>
+                    </Grid>
+
+                    <ScrollViewer x:Name="PreviewScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <Grid MinHeight="{Binding ViewportHeight, ElementName=PreviewScroll}">
+                            <StackPanel VerticalAlignment="Top">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedClip}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+
+                                <!-- Tarjeta de vista previa de contenido -->
+                                <Border Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <Border Background="{DynamicResource PreviewBrush}" CornerRadius="6" Padding="8" Margin="0,0,0,8">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SelectedImageBytes}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Image Source="{Binding SelectedImageBytes, Converter={StaticResource BytesToImageConverter}}" Stretch="Uniform" MaxHeight="220" />
+                                        </Border>
+                                        <Border Background="{DynamicResource PreviewBrush}" CornerRadius="6" Padding="11,9">
+                                            <TextBlock Text="{Binding SelectedPreviewText, TargetNullValue=Selecciona un elemento del historial}"
+                                                       FontFamily="Consolas"
+                                                       FontSize="11.5"
+                                                       TextWrapping="Wrap"
+                                                       LineHeight="17"
+                                                       MaxHeight="250" />
+                                        </Border>
+                                        <StackPanel Orientation="Horizontal" Margin="2,8,0,0">
+                                            <TextBlock Text="{Binding SelectedClip.SourceApp, TargetNullValue=ClipForge}" FontSize="11" Foreground="{DynamicResource MutedBrush}" />
+                                            <TextBlock Text="  ·  " FontSize="11" Foreground="{DynamicResource MutedBrush}" />
+                                            <TextBlock Text="{Binding SelectedClip.CreatedAtUtc, StringFormat='{}{0:dd MMM, HH:mm}'}" FontSize="11" Foreground="{DynamicResource MutedBrush}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Tarjeta de organización (Título, Proyecto, Etiquetas) -->
+                                <Border Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Organización y metadatos" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                            <Button Grid.Column="1" Content="Guardar" Style="{StaticResource ToolbarButton}" Padding="10,4" Click="SaveTitle_Click" />
+                                        </Grid>
+                                        <TextBlock Text="Título" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4" />
+                                        <TextBox x:Name="ClipTitleBox" Style="{StaticResource SearchBox}" Height="32" MinHeight="32" MaxLength="120" Text="{Binding TitleDraft, UpdateSourceTrigger=PropertyChanged}" ToolTip="Nombre opcional para encontrar este clip" KeyDown="TitleBox_KeyDown" />
+                                        <Grid Margin="0,8,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="8" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="Proyecto" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4" />
+                                                <TextBox Style="{StaticResource SearchBox}" Height="32" MinHeight="32" MaxLength="80" Text="{Binding CollectionDraft, UpdateSourceTrigger=PropertyChanged}" KeyDown="TitleBox_KeyDown" ToolTip="Por ejemplo: Cliente San Juan" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Etiquetas" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4" />
+                                                <TextBox Style="{StaticResource SearchBox}" Height="32" MinHeight="32" MaxLength="240" Text="{Binding TagsDraft, UpdateSourceTrigger=PropertyChanged}" KeyDown="TitleBox_KeyDown" ToolTip="Separadas por coma" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Tarjeta de transformaciones de texto -->
+                                <Border Style="{StaticResource CardBorder}" Padding="12,10" Margin="0,0,0,10">
+                                    <Expander Header="Transformar texto" IsEnabled="{Binding CanTransform}" Foreground="{DynamicResource TextBrush}">
+                                        <StackPanel Margin="0,8,0,0">
+                                            <WrapPanel>
+                                                <Button Content="Recortar" Tag="trim" Click="TransformText_Click" Style="{StaticResource ToolbarButton}" Margin="0,0,5,5" />
+                                                <Button Content="MAYÚSCULAS" Tag="upper" Click="TransformText_Click" Style="{StaticResource ToolbarButton}" Margin="0,0,5,5" />
+                                                <Button Content="minúsculas" Tag="lower" Click="TransformText_Click" Style="{StaticResource ToolbarButton}" Margin="0,0,5,5" />
+                                                <Button Content="Sin vacías" Tag="remove-empty-lines" Click="TransformText_Click" Style="{StaticResource ToolbarButton}" Margin="0,0,5,5" />
+                                                <Button Content="Sin duplicadas" Tag="distinct-lines" Click="TransformText_Click" Style="{StaticResource ToolbarButton}" Margin="0,0,5,5" />
+                                                <Button Content="Original" Tag="original" Click="TransformText_Click" Style="{StaticResource ToolbarButton}" Margin="0,0,5,5" />
+                                                <Button Content="Deshacer" Click="UndoTransform_Click" IsEnabled="{Binding CanUndoTransform}" Style="{StaticResource ToolbarButton}" Margin="0,0,5,5" />
+                                            </WrapPanel>
+                                        </StackPanel>
+                                    </Expander>
+                                </Border>
+
+                                <!-- Variables de plantilla -->
+                                <Border Padding="12,10" Margin="0,0,0,10">
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource CardBorder}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasVariables}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <Expander Header="Variables de plantilla ${…}" IsExpanded="True" Foreground="{DynamicResource TextBrush}">
+                                        <StackPanel Margin="0,8,0,0">
+                                            <ItemsControl ItemsSource="{Binding Variables}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Margin="0,0,0,6">
+                                                            <TextBlock Text="{Binding Name}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,3" />
+                                                            <TextBox Style="{StaticResource SearchBox}" Height="30" MinHeight="30" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" MaxLength="4000" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <Button Content="Aplicar variables" Tag="template" Click="TransformText_Click" Style="{StaticResource ToolbarButton}" HorizontalAlignment="Left" Margin="0,4,0,0" />
+                                        </StackPanel>
+                                    </Expander>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- Estado sin selección limpio -->
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="240">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedClip}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <Border Width="48" Height="48" CornerRadius="12" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" HorizontalAlignment="Center">
+                                    <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="19" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="Ningún clip seleccionado" FontSize="14" FontWeight="SemiBold" Margin="0,12,0,0" TextAlignment="Center" />
+                                <TextBlock Text="Haz clic en un elemento del historial para inspeccionarlo, editar sus etiquetas o pegarlo." FontSize="11.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,0" TextAlignment="Center" />
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+
+                    <!-- Acciones del clip seleccionado (solo visibles cuando hay selección) -->
+                    <Border Grid.Row="2" Padding="12,10" Margin="0,10,0,0">
+                        <Border.Style>
+                            <Style TargetType="Border" BasedOn="{StaticResource CardBorder}">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedClip}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel>
+                            <Button Style="{StaticResource PrimaryButton}" Click="PasteSelected_Click" IsEnabled="{Binding HasSelection}" HorizontalContentAlignment="Center" Margin="0,0,0,8">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="{Binding PrimaryPasteLabel}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Acciones contextuales: Texto plano / JSON -->
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Click="PasteSelectedPlainText_Click" IsEnabled="{Binding CanPastePlainText}" Content="Pegar texto plano">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource ToolbarButton}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CanPastePlainText}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Grid.Column="1" Click="ToggleJsonFormatting_Click" IsEnabled="{Binding CanFormatJson}" Content="{Binding JsonActionLabel}" Margin="6,0,0,0">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource ToolbarButton}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CanFormatJson}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </Grid>
+
+                            <!-- Fila compacta de 4 acciones rápidas con icono -->
+                            <UniformGrid Columns="4">
+                                <Button Style="{StaticResource ToolbarButton}" Click="CopySelected_Click" Margin="0,0,3,0" ToolTip="Copiar al portapapeles">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                        <TextBlock Text="Copiar" FontSize="11" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ToolbarButton}" Click="ExportSelected_Click" Margin="3,0,3,0" ToolTip="Exportar archivo">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xEDE1;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                        <TextBlock Text="Exportar" FontSize="11" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ToolbarButton}" Click="ToggleFavorite_Click" Margin="3,0,3,0" ToolTip="{Binding FavoriteActionLabel}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE734;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="#F2C94C" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                        <TextBlock Text="Favorito" FontSize="11" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ToolbarButton}" Click="DeleteSelected_Click" Margin="3,0,0,0" ToolTip="Enviar a la papelera (Supr)">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="#EB5757" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                        <TextBlock Text="Borrar" FontSize="11" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </UniformGrid>
                         </StackPanel>
                     </Border>
                 </Grid>
-                <StackPanel Grid.Row="3" Margin="2,10,0,0">
-                    <Button Content="Enviar selección por red…" Click="SendBatch_Click" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
-                    <WrapPanel Margin="0,0,0,8"><TextBlock Text="Separador al unir:" VerticalAlignment="Center" Margin="0,0,8,0"/><ComboBox x:Name="CombineSeparator" SelectedIndex="0" MinWidth="140"><ComboBoxItem Content="Línea vacía"/><ComboBoxItem Content="Salto de línea"/><ComboBoxItem Content="Coma"/><ComboBoxItem Content="Tabulador"/><ComboBoxItem Content="Sin separador"/></ComboBox><Button Content="Exportar selección…" Click="ExportBatch_Click" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"/></WrapPanel>
-                    <WrapPanel Margin="0,0,0,8"><Button Content="Preparar cola con selección" Click="PrepareQueue_Click" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"/><Button Content="Vaciar cola" Click="ClearQueue_Click" Style="{StaticResource SecondaryButton}"/></WrapPanel>
-                    <Button Content="Filtros avanzados…" Click="AdvancedFilters_Click" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
-                    <WrapPanel Margin="0,0,0,8"><TextBlock Text="Ctrl o Mayús + clic para seleccionar varios" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,0,10,0"/><Button Content="Unir textos y copiar" Click="CombineSelected_Click" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"/><Button Content="Comparar textos" Click="CompareSelected_Click" Style="{StaticResource SecondaryButton}"/></WrapPanel>
-                    <Button Content="Cargar más clips" Click="LoadMore_Click" HorizontalAlignment="Left" Margin="0,0,0,8">
-                        <Button.Style><Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasMore}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Button.Style>
-                    </Button>
-                    <TextBlock Text="{Binding StatusMessage}" FontSize="11" Foreground="{DynamicResource MutedBrush}" />
-                </StackPanel>
-            </Grid>
-
-            <Border Grid.Column="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1,0,0,0">
-                <Grid Margin="22,25,22,20">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,17"><TextBlock Text="VISTA PREVIA" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" /><TextBlock Text="  ·  " Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" /><TextBlock Text="{Binding SelectedClip.KindLabel, TargetNullValue=Sin selección}" FontSize="10" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" /></StackPanel>
-                    <ScrollViewer x:Name="PreviewScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid MinHeight="{Binding ViewportHeight, ElementName=PreviewScroll}"><StackPanel VerticalAlignment="Top">
-                            <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding SelectedClip}" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></StackPanel.Style>
-                            <TextBlock Text="TÍTULO DEL CLIP" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,7" />
-                            <Grid Margin="0,0,0,5">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                <TextBox x:Name="ClipTitleBox" Style="{StaticResource SearchBox}" MaxLength="120" Text="{Binding TitleDraft, UpdateSourceTrigger=PropertyChanged}" ToolTip="Nombre opcional para encontrar este clip. No cambia el nombre del archivo original." KeyDown="TitleBox_KeyDown" />
-                                <Button Grid.Column="1" Content="Guardar" Style="{StaticResource SecondaryButton}" Margin="7,0,0,0" Click="SaveTitle_Click" />
-                            </Grid>
-                            <TextBlock Text="Colección / proyecto" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,7,0,5"/>
-                            <TextBox Style="{StaticResource SearchBox}" MaxLength="80" Text="{Binding CollectionDraft, UpdateSourceTrigger=PropertyChanged}" KeyDown="TitleBox_KeyDown" ToolTip="Por ejemplo: Cliente San Juan"/>
-                            <TextBlock Text="Etiquetas" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,7,0,5"/>
-                            <TextBox Style="{StaticResource SearchBox}" MaxLength="240" Text="{Binding TagsDraft, UpdateSourceTrigger=PropertyChanged}" KeyDown="TitleBox_KeyDown" ToolTip="Por ejemplo: contrato, pendiente, legal"/>
-                            <Expander Header="Transformar texto" IsEnabled="{Binding CanTransform}" Margin="0,10,0,10" Foreground="{DynamicResource TextBrush}">
-                                <StackPanel Margin="0,8,0,0"><WrapPanel>
-                                    <Button Content="Quitar bordes" Tag="trim" Click="TransformText_Click" Style="{StaticResource SecondaryButton}" Margin="0,0,5,5"/>
-                                    <Button Content="MAYÚSCULAS" Tag="upper" Click="TransformText_Click" Style="{StaticResource SecondaryButton}" Margin="0,0,5,5"/>
-                                    <Button Content="minúsculas" Tag="lower" Click="TransformText_Click" Style="{StaticResource SecondaryButton}" Margin="0,0,5,5"/>
-                                    <Button Content="Quitar líneas vacías" Tag="remove-empty-lines" Click="TransformText_Click" Style="{StaticResource SecondaryButton}" Margin="0,0,5,5"/>
-                                    <Button Content="Quitar líneas duplicadas" Tag="distinct-lines" Click="TransformText_Click" Style="{StaticResource SecondaryButton}" Margin="0,0,5,5"/>
-                                    <Button Content="Original" Tag="original" Click="TransformText_Click" Style="{StaticResource SecondaryButton}" Margin="0,0,5,5"/>
-                                    <Button Content="Deshacer" Click="UndoTransform_Click" IsEnabled="{Binding CanUndoTransform}" Style="{StaticResource SecondaryButton}" Margin="0,0,5,5"/>
-                                    <Button Content="Recetas guardadas…" Click="OpenRecipes_Click" Style="{StaticResource SecondaryButton}" Margin="0,0,5,5"/>
-                                </WrapPanel><TextBlock Text="Los cambios se muestran en la vista previa. El clip guardado no se modifica." FontSize="10" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/></StackPanel>
-                            </Expander>
-                            <Expander Header="Completar plantilla ${variable}" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,12">
-                                <Expander.Style><Style TargetType="Expander"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasVariables}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Expander.Style>
-                                <StackPanel Margin="0,8,0,0"><ItemsControl ItemsSource="{Binding Variables}"><ItemsControl.ItemTemplate><DataTemplate><StackPanel Margin="0,0,0,8"><TextBlock Text="{Binding Name}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,5"/><TextBox Style="{StaticResource SearchBox}" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" MaxLength="4000"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><Button Content="Preparar vista previa" Tag="template" Click="TransformText_Click" Style="{StaticResource SecondaryButton}"/></StackPanel>
-                            </Expander>
-                            <TextBlock Text="El título solo identifica el clip; no cambia el nombre del archivo." FontSize="10" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,14" />
-                            <Border Background="{DynamicResource PreviewBrush}" CornerRadius="12" MinHeight="190" Padding="15" Margin="0,0,0,16">
-                                <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding SelectedImageBytes}" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Border.Style>
-                                <Image Source="{Binding SelectedImageBytes, Converter={StaticResource BytesToImageConverter}}" Stretch="Uniform" MaxHeight="270" />
-                            </Border>
-                            <Border Background="{DynamicResource PreviewBrush}" CornerRadius="12" Padding="14">
-                                <TextBlock Text="{Binding SelectedPreviewText, TargetNullValue=Selecciona un elemento del historial}" FontFamily="Consolas" FontSize="12" FontWeight="Medium" TextWrapping="Wrap" LineHeight="19" MaxHeight="380" />
-                            </Border>
-                            <StackPanel Orientation="Horizontal" Margin="0,18,0,0"><TextBlock Text="{Binding SelectedClip.SourceApp, TargetNullValue=ClipForge}" FontSize="11" Foreground="{DynamicResource MutedBrush}" /><TextBlock Text="  ·  " FontSize="11" Foreground="{DynamicResource MutedBrush}" /><TextBlock Text="{Binding SelectedClip.CreatedAtUtc, StringFormat='{}{0:dd MMM, HH:mm}'}" FontSize="11" Foreground="{DynamicResource MutedBrush}" /></StackPanel>
-                        </StackPanel>
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="245">
-                            <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding SelectedClip}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></StackPanel.Style>
-                            <Border Width="52" Height="52" CornerRadius="16" Background="{DynamicResource PlaceholderBrush}" HorizontalAlignment="Center"><TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="21" Foreground="{DynamicResource PlaceholderIconBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
-                            <TextBlock Text="Elige un elemento" FontSize="15" FontWeight="SemiBold" Margin="0,15,0,0" TextAlignment="Center" />
-                            <TextBlock Text="Selecciona un clip para verlo, añadir un título y pegarlo." FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0" TextAlignment="Center" />
-                        </StackPanel>
-                    </Grid></ScrollViewer><StackPanel Grid.Row="2">
-                        <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <Button Content="Copiar" Style="{StaticResource SecondaryButton}" Click="CopySelected_Click" IsEnabled="{Binding HasSelection}" Margin="0,0,4,0"/>
-                            <Button Grid.Column="1" Content="Exportar…" Style="{StaticResource SecondaryButton}" Click="ExportSelected_Click" IsEnabled="{Binding HasSelection}" Margin="4,0,0,0"/>
-                        </Grid>
-                        <Button Style="{StaticResource PrimaryButton}" Click="PasteSelected_Click" IsEnabled="{Binding HasSelection}" HorizontalContentAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="14" Margin="0,0,9,0" /><TextBlock Text="{Binding PrimaryPasteLabel}" /></StackPanel></Button>
-                        <StackPanel Margin="0,8,0,0">
-                            <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding CanPastePlainText}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></StackPanel.Style>
-                            <Button Style="{StaticResource SecondaryButton}" Click="PasteSelectedPlainText_Click" IsEnabled="{Binding CanPastePlainText}" HorizontalContentAlignment="Center"><TextBlock Text="Pegar sin formato" /></Button>
-                        </StackPanel>
-                        <StackPanel Margin="0,8,0,0">
-                            <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding CanFormatJson}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></StackPanel.Style>
-                            <Button Style="{StaticResource SecondaryButton}" Click="ToggleJsonFormatting_Click" IsEnabled="{Binding CanFormatJson}" HorizontalContentAlignment="Center"><TextBlock Text="{Binding JsonActionLabel}" /></Button>
-                        </StackPanel>
-                        <Button Style="{StaticResource SecondaryButton}" Click="ToggleFavorite_Click" IsEnabled="{Binding HasSelection}" Margin="0,8,0,0" HorizontalContentAlignment="Center"><TextBlock Text="{Binding FavoriteActionLabel}" /></Button>
-                        <Button Style="{StaticResource SecondaryButton}" Click="DeleteSelected_Click" IsEnabled="{Binding HasSelection}" Margin="0,8,0,0" HorizontalContentAlignment="Center" ToolTip="Eliminar este clip del historial"><TextBlock Text="Eliminar del historial" /></Button>
-                        <TextBlock Text="Pega en la última aplicación que usaste. También puedes hacer doble clic en un clip." FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="4,13,4,0" />
-                    </StackPanel>
-                </Grid>
             </Border>
         </Grid>
-        <ContentControl x:Name="SettingsContent" Grid.Row="1" Visibility="Collapsed" />
+
+        <ContentControl x:Name="SettingsContent" Grid.Row="1" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
     </Grid>
 </Window>
-
-
-

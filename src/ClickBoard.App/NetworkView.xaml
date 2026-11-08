@@ -3,8 +3,21 @@
     <Grid.ColumnDefinitions><ColumnDefinition Width="230"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
     <Border Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0">
       <DockPanel Margin="15,20,15,18" LastChildFill="False">
-        <Button DockPanel.Dock="Bottom" Content="←  Volver al historial" Style="{StaticResource NavButton}" Click="Back_Click" />
-        <StackPanel DockPanel.Dock="Top"><TextBlock Text="CLIPFORGE" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}" Margin="13,0,0,12"/><Border Background="{DynamicResource AccentSoftBrush}" CornerRadius="9" Padding="13,11"><TextBlock Text="Red y contactos" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/></Border></StackPanel>
+        <Button DockPanel.Dock="Bottom" Style="{StaticResource NavButton}" Click="Back_Click" ToolTip="Volver al historial">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="14" Width="27" />
+            <TextBlock Text="Volver al historial" />
+          </StackPanel>
+        </Button>
+        <StackPanel DockPanel.Dock="Top">
+          <TextBlock Text="CLIPFORGE" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}" Margin="13,0,0,12"/>
+          <Border Background="{DynamicResource AccentSoftBrush}" CornerRadius="9" Padding="12,10">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="&#xE968;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource AccentBrush}" Width="27" VerticalAlignment="Center"/>
+              <TextBlock Text="Red y contactos" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
       </DockPanel>
     </Border>
     <Grid Grid.Column="1" Margin="36,24,36,20">
@@ -35,7 +48,7 @@
           <CheckBox x:Name="ContactAutoReceiveCheck" Content="Aceptar automáticamente los archivos de este contacto" Foreground="{DynamicResource TextBrush}" FontSize="12" Margin="2,12,0,0" IsEnabled="False"/>
           <TextBlock Text="Transferencias de esta sesión" FontSize="17" FontWeight="SemiBold" Margin="0,22,0,10"/>
           <ListBox x:Name="TransfersList" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" MaxHeight="300" ScrollViewer.HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch">
-            <ListBox.ItemTemplate><DataTemplate><Grid Margin="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{Binding FileName}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding Description}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,6"/><ProgressBar Minimum="0" Maximum="100" Value="{Binding Percent}" Height="5"/></StackPanel><Button Grid.Column="1" Content="Cancelar" Tag="{Binding Id}" IsEnabled="{Binding Active}" Style="{StaticResource SecondaryButton}" Click="CancelTransfer_Click" Margin="14,0,0,0" VerticalAlignment="Center"/></Grid></DataTemplate></ListBox.ItemTemplate>
+            <ListBox.ItemTemplate><DataTemplate><Grid Margin="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{Binding FileName}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding Description}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,6"/><ProgressBar Minimum="0" Maximum="100" Value="{Binding Percent}" Height="5"/></StackPanel><Button Grid.Column="1" Content="Reintentar" Tag="{Binding Id}" IsEnabled="{Binding CanRetry}" Style="{StaticResource SecondaryButton}" Click="RetryTransfer_Click" Margin="14,0,0,0" VerticalAlignment="Center"/><Button Grid.Column="2" Content="Cancelar" Tag="{Binding Id}" IsEnabled="{Binding Active}" Style="{StaticResource SecondaryButton}" Click="CancelTransfer_Click" Margin="8,0,0,0" VerticalAlignment="Center"/></Grid></DataTemplate></ListBox.ItemTemplate>
           </ListBox>
           <TextBlock Text="Bandeja de recibidos" FontSize="17" FontWeight="SemiBold" Margin="0,22,0,10"/>
           <ListBox x:Name="InboxList" DisplayMemberPath="Description" MaxHeight="240" Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource LineBrush}"/>

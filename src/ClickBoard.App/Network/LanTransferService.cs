@@ -61,6 +61,7 @@ public sealed class LanTransferService : IDisposable
     private string? _fingerprint;
     private readonly ConcurrentDictionary<string, LanTransferUpdate> _transfers = new();
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _transferCancellation = new();
+    private readonly ConcurrentDictionary<string, string> _completedTransfers = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _outgoingSlots = new(2, 2);
 
     public event Action? Changed;
@@ -213,11 +214,26 @@ public sealed class LanTransferService : IDisposable
         shutdown?.Dispose();
     }
 
-    public async Task SendFileAsync(LanPeer peer, string path, CancellationToken cancellationToken = default)
+    public async Task RetryTransferAsync(string transferId, CancellationToken cancellationToken = default)
+    {
+        if (!_transfers.TryGetValue(transferId, out var existing) || !existing.CanRetry)
+            throw new InvalidOperationException("Esta transferencia no se puede reintentar.");
+        var peer = GetPeers().FirstOrDefault(p => string.Equals(p.Fingerprint, existing.PeerFingerprint, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException("El dispositivo de destino no está disponible en la red en este momento.");
+        await SendFileAsync(peer, existing.SourcePath!, cancellationToken, existing.Id);
+    }
+
+    public async Task SendFileAsync(LanPeer peer, string path, CancellationToken cancellationToken = default, string? existingId = null)
     {
         if (!_outgoingSlots.Wait(0)) throw new InvalidOperationException("Ya hay dos envíos en curso. Espera a que terminen o cancela uno.");
-        var id = Guid.NewGuid().ToString("N");
-        var update = new LanTransferUpdate(id, GetContactName(peer.Fingerprint) ?? peer.Name, Path.GetFileName(path), 0, 0, false, "Conectando");
+        var id = existingId ?? Guid.NewGuid().ToString("N");
+        var previousCompleted = _transfers.TryGetValue(id, out var prev) ? prev.Completed : 0;
+        var previousTotal = prev?.Total ?? 0;
+        var update = new LanTransferUpdate(id, GetContactName(peer.Fingerprint) ?? peer.Name, Path.GetFileName(path), previousCompleted, previousTotal, false, "Conectando")
+        {
+            PeerFingerprint = peer.Fingerprint,
+            SourcePath = path
+        };
         try
         {
             ReportTransfer(update);
@@ -249,6 +265,13 @@ public sealed class LanTransferService : IDisposable
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _shutdown!.Token);
         _transferCancellation[id] = timeout;
         timeout.CancelAfter(TimeSpan.FromMinutes(5));
+        await using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
+        var length = input.Length;
+        if (length > max) throw new InvalidOperationException($"El archivo supera el límite de {_maxFileSizeMb()} MB.");
+        var fileHashBytes = await SHA256.HashDataAsync(input, timeout.Token);
+        input.Position = 0;
+        var transferId = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{file.Name}:{length}:{Convert.ToHexString(fileHashBytes)}")));
+
         using var client = new TcpClient(AddressFamily.InterNetwork);
         await client.ConnectAsync(address, Port, timeout.Token);
         using var ssl = new SslStream(client.GetStream(), false, (_, certificate, _, _) => certificate is not null && FingerprintOf(certificate) == peer.Fingerprint.ToUpperInvariant());
@@ -261,34 +284,49 @@ public sealed class LanTransferService : IDisposable
         }, timeout.Token);
         if (!ssl.IsEncrypted || !ssl.IsMutuallyAuthenticated || ssl.RemoteCertificate is null)
             throw new AuthenticationException("No se pudo autenticar a ambos dispositivos.");
-        await using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
-        var length = input.Length;
-        if (length > max) throw new InvalidOperationException($"El archivo supera el límite de {_maxFileSizeMb()} MB.");
-        await WriteFrameAsync(ssl, new TransferHeader(DisplayName, file.Name, length), timeout.Token);
-        ReportTransfer(new LanTransferUpdate(id, GetContactName(peer.Fingerprint) ?? peer.Name, file.Name, 0, length, false, "Esperando aceptación"));
+        await WriteFrameAsync(ssl, new TransferHeader(DisplayName, file.Name, length, transferId), timeout.Token);
+        ReportTransfer(new LanTransferUpdate(id, GetContactName(peer.Fingerprint) ?? peer.Name, file.Name, 0, length, false, "Esperando aceptación")
+        {
+            PeerFingerprint = peer.Fingerprint,
+            SourcePath = path
+        });
         var response = await ReadFrameAsync<TransferReply>(ssl, timeout.Token);
         if (!response.Accepted) throw new InvalidOperationException(response.Message ?? "El destinatario rechazó el archivo.");
+        if (response.AlreadyCompleted)
+        {
+            ReportTransfer(new LanTransferUpdate(id, GetContactName(peer.Fingerprint) ?? peer.Name, file.Name, length, length, false, "Completado")
+            {
+                PeerFingerprint = peer.Fingerprint,
+                SourcePath = path
+            });
+            StatusChanged?.Invoke($"Archivo ya confirmado en {GetContactName(peer.Fingerprint) ?? peer.Name}: {file.Name}");
+            return;
+        }
         timeout.CancelAfter(TimeSpan.FromSeconds(45));
         var lastReport = Environment.TickCount64;
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var buffer = new byte[81920];
-        long sent = 0;
+        long sent = Math.Clamp(response.ResumeOffset, 0, length);
+        if (sent > 0)
+            input.Position = sent;
         while (sent < length)
         {
             var read = await input.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, length - sent)), timeout.Token);
             if (read == 0) throw new IOException("El archivo cambió durante el envío.");
-            hash.AppendData(buffer, 0, read);
             await ssl.WriteAsync(buffer.AsMemory(0, read), timeout.Token);
             sent += read;
             timeout.CancelAfter(TimeSpan.FromSeconds(45));
             if (Environment.TickCount64 - lastReport >= 200 || sent == length)
             {
-                ReportTransfer(new LanTransferUpdate(id, GetContactName(peer.Fingerprint) ?? peer.Name, file.Name, sent, length, false, "En curso"));
+                ReportTransfer(new LanTransferUpdate(id, GetContactName(peer.Fingerprint) ?? peer.Name, file.Name, sent, length, false, "En curso")
+                {
+                    PeerFingerprint = peer.Fingerprint,
+                    SourcePath = path
+                });
                 lastReport = Environment.TickCount64;
             }
         }
         if (input.Length != length) throw new IOException("El archivo cambió durante el envío.");
-        await ssl.WriteAsync(hash.GetHashAndReset(), timeout.Token);
+        await ssl.WriteAsync(fileHashBytes, timeout.Token);
         await ssl.FlushAsync(timeout.Token);
         var final = await ReadFrameAsync<TransferReply>(ssl, timeout.Token);
         if (!final.Accepted) throw new IOException(final.Message ?? "El destinatario no confirmó la recepción.");
@@ -315,6 +353,8 @@ public sealed class LanTransferService : IDisposable
     private async Task HandleIncomingAsync(TcpClient client, CancellationToken token)
     {
         string? temporaryFile = null;
+        var hasValidTransferId = false;
+        var deletePartialOnExit = true;
         var id = Guid.NewGuid().ToString("N");
         try
         {
@@ -345,6 +385,14 @@ public sealed class LanTransferService : IDisposable
                 }
                 var alias = GetContactName(fingerprint);
                 var offer = new LanOffer(fingerprint, alias ?? name, fileName, header.Length, alias is not null);
+                hasValidTransferId = ValidFingerprint(header.TransferId);
+                var transferKey = hasValidTransferId ? $"{fingerprint}:{header.TransferId!.ToUpperInvariant()}" : null;
+                if (transferKey is not null && _completedTransfers.TryGetValue(transferKey, out var existingSavedPath) && File.Exists(existingSavedPath))
+                {
+                    ReportTransfer(new LanTransferUpdate(id, offer.DeviceName, Path.GetFileName(existingSavedPath), header.Length, header.Length, true, "Completado"));
+                    await WriteFrameAsync(ssl, new TransferReply(true, null, header.Length, AlreadyCompleted: true), timeout.Token);
+                    return;
+                }
                 ReportTransfer(new LanTransferUpdate(id, offer.DeviceName, fileName, 0, header.Length, true, "Esperando aceptación"));
                 timeout.CancelAfter(TimeSpan.FromMinutes(5));
                 var accepted = GetContactAutoReceive(fingerprint) || (RequestApproval is not null && await RequestApproval(offer).WaitAsync(timeout.Token));
@@ -354,24 +402,49 @@ public sealed class LanTransferService : IDisposable
                     await WriteFrameAsync(ssl, new TransferReply(false, "El destinatario rechazó el archivo."), timeout.Token);
                     return;
                 }
+                Directory.CreateDirectory(_receivedDirectory);
+                temporaryFile = hasValidTransferId
+                    ? Path.Combine(_receivedDirectory, $".{fingerprint[..16]}-{header.TransferId![..32]}.partial")
+                    : Path.Combine(_receivedDirectory, $".{Guid.NewGuid():N}.partial");
+                long resumeOffset = 0;
+                if (hasValidTransferId && File.Exists(temporaryFile))
+                {
+                    var partialLength = new FileInfo(temporaryFile).Length;
+                    if (partialLength > 0 && partialLength < header.Length)
+                        resumeOffset = partialLength;
+                    else
+                        File.Delete(temporaryFile);
+                }
                 IDisposable quota;
-                try { quota = await StorageQuota.AcquireAsync(header.Length + 65536, timeout.Token); }
+                try { quota = await StorageQuota.AcquireAsync(Math.Max(0, header.Length - resumeOffset) + 65536, timeout.Token); }
                 catch (StorageQuotaException exception)
                 {
-                    ReportTransfer(new LanTransferUpdate(id, offer.DeviceName, fileName, 0, header.Length, true, "Sin espacio disponible"));
+                    ReportTransfer(new LanTransferUpdate(id, offer.DeviceName, fileName, resumeOffset, header.Length, true, "Sin espacio disponible"));
                     await WriteFrameAsync(ssl, new TransferReply(false, exception.Message), timeout.Token);
                     return;
                 }
                 using var quotaLease = quota;
                 timeout.CancelAfter(TimeSpan.FromSeconds(45));
-                Directory.CreateDirectory(_receivedDirectory);
-                temporaryFile = Path.Combine(_receivedDirectory, $".{Guid.NewGuid():N}.partial");
-                await using (var output = new FileStream(temporaryFile, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                deletePartialOnExit = !hasValidTransferId;
+                await using (var output = new FileStream(temporaryFile, resumeOffset > 0 ? FileMode.Open : FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 81920, useAsync: true))
                 {
-                    await WriteFrameAsync(ssl, new TransferReply(true, null), timeout.Token);
                     using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
                     var buffer = new byte[81920];
-                    long received = 0;
+                    if (resumeOffset > 0)
+                    {
+                        long hashed = 0;
+                        while (hashed < resumeOffset)
+                        {
+                            var readExisting = await output.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, resumeOffset - hashed)), timeout.Token);
+                            if (readExisting == 0) break;
+                            hash.AppendData(buffer, 0, readExisting);
+                            hashed += readExisting;
+                        }
+                        output.Position = hashed;
+                        resumeOffset = hashed;
+                    }
+                    await WriteFrameAsync(ssl, new TransferReply(true, null, ResumeOffset: resumeOffset), timeout.Token);
+                    long received = resumeOffset;
                     var lastReport = Environment.TickCount64;
                     while (received < header.Length)
                     {
@@ -389,11 +462,17 @@ public sealed class LanTransferService : IDisposable
                     }
                     var expectedHash = new byte[32];
                     await ssl.ReadExactlyAsync(expectedHash, timeout.Token);
-                    if (!CryptographicOperations.FixedTimeEquals(hash.GetHashAndReset(), expectedHash)) throw new IOException("La verificación del archivo falló.");
+                    if (!CryptographicOperations.FixedTimeEquals(hash.GetHashAndReset(), expectedHash))
+                    {
+                        deletePartialOnExit = true;
+                        throw new IOException("La verificación del archivo falló.");
+                    }
                     await output.FlushAsync(timeout.Token);
                 }
                 var savedPath = MoveWithoutOverwrite(temporaryFile, fileName);
                 temporaryFile = null;
+                if (transferKey is not null)
+                    _completedTransfers[transferKey] = savedPath;
                 ReportTransfer(new LanTransferUpdate(id, offer.DeviceName, Path.GetFileName(savedPath), header.Length, header.Length, true, "Completado"));
                 var receipt = new LanReceipt(offer.DeviceName, Path.GetFileName(savedPath), savedPath);
                 try { LanInbox.Store(receipt); }
@@ -412,7 +491,7 @@ public sealed class LanTransferService : IDisposable
         finally
         {
             _transferCancellation.TryRemove(id, out _);
-            if (temporaryFile is not null) { try { File.Delete(temporaryFile); } catch (IOException) { } catch (UnauthorizedAccessException) { } }
+            if (temporaryFile is not null && deletePartialOnExit) { try { File.Delete(temporaryFile); } catch (IOException) { } catch (UnauthorizedAccessException) { } }
             _incomingSlots.Release();
         }
     }
@@ -642,6 +721,6 @@ public sealed class LanTransferService : IDisposable
     }
     public void Dispose() { StopCore(); _certificate?.Dispose(); }
     private sealed record Announcement(string Protocol, string Name, string Fingerprint);
-    private sealed record TransferHeader(string DeviceName, string FileName, long Length);
-    private sealed record TransferReply(bool Accepted, string? Message);
+    private sealed record TransferHeader(string DeviceName, string FileName, long Length, string? TransferId = null);
+    private sealed record TransferReply(bool Accepted, string? Message, long ResumeOffset = 0, bool AlreadyCompleted = false);
 }

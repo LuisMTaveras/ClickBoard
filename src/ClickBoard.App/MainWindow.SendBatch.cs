@@ -24,9 +24,10 @@ public partial class MainWindow
         if (service?.IsRunning != true) { _viewModel.StatusMessage = "Activa Red y contactos antes de enviar."; return; }
         var selected = ClipList.Items.OfType<ClipboardClip>().Where(clip => ClipList.SelectedItems.Contains(clip)).ToArray();
         if (selected.Length == 0) { _viewModel.StatusMessage = "Selecciona los clips que quieras enviar."; return; }
-        var panel = new StackPanel { Margin = new Thickness(28), MaxWidth = 650 };
-        panel.Children.Add(new TextBlock { Text = "Enviar selección", FontSize = 22 });
-        panel.Children.Add(new TextBlock { Text = $"{selected.Length} clips. Los textos se envían como TXT y las imágenes como PNG. Cada archivo puede requerir aceptación del receptor.", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,10,0,10) });
+        var (rootLayout, _, panel) = CreateSubpageLayout(
+            "Red local",
+            "Enviar selección por red",
+            $"{selected.Length} clips seleccionados. Los textos se envían como TXT y las imágenes como PNG.");
         var peers = CreateThemedListBox(height: 200);
         var availablePeers = service.GetPeers();
         peers.ItemsSource = availablePeers;
@@ -34,11 +35,13 @@ public partial class MainWindow
         if (initialPeer is not null)
             peers.SelectedItem = availablePeers.FirstOrDefault(p => p.Fingerprint == initialPeer.Fingerprint) ?? initialPeer;
         panel.Children.Add(peers);
-        var status = new TextBlock { Text = "Elige un dispositivo disponible.", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,10,0,10) }; panel.Children.Add(status);
-        var send = new Button { Content = "Enviar lote", Style = (Style)FindResource("PrimaryButton"), Margin = new Thickness(0,6,0,6) };
-        var refresh = new Button { Content = "Actualizar dispositivos", Style = (Style)FindResource("SecondaryButton"), Margin = new Thickness(0,6,0,6) };
-        var cancel = new Button { Content = "Cancelar envío", IsEnabled = false, Style = (Style)FindResource("SecondaryButton"), Margin = new Thickness(0,6,0,6) };
-        var back = new Button { Content = "Volver", Style = (Style)FindResource("SecondaryButton"), Margin = new Thickness(0,6,0,6) };
+        var status = new TextBlock { Text = "Elige un dispositivo disponible.", FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 14) };
+        status.SetResourceReference(ForegroundProperty, "MutedBrush");
+        panel.Children.Add(status);
+        var send = new Button { Content = "Enviar lote", Style = (Style)FindResource("PrimaryButton"), Margin = new Thickness(0, 0, 8, 0) };
+        var refresh = new Button { Content = "Actualizar dispositivos", Style = (Style)FindResource("SecondaryButton"), Margin = new Thickness(0, 0, 8, 0) };
+        var cancel = new Button { Content = "Cancelar envío", IsEnabled = false, Style = (Style)FindResource("SecondaryButton"), Margin = new Thickness(0, 0, 8, 0) };
+        var back = new Button { Content = "←  Volver", Style = (Style)FindResource("SecondaryButton") };
         CancellationTokenSource? cancellation = null;
         refresh.Click += (_, _) => peers.ItemsSource = service.GetPeers();
         cancel.Click += (_, _) => cancellation?.Cancel(); back.Click += (_, _) => ClosePage();
@@ -88,8 +91,13 @@ public partial class MainWindow
             finally
             { cancellation.Dispose(); cancellation = null; _batchSending = false; send.IsEnabled = back.IsEnabled = refresh.IsEnabled = peers.IsEnabled = true; cancel.IsEnabled = false; }
         };
-        panel.Children.Add(send); panel.Children.Add(refresh); panel.Children.Add(cancel); panel.Children.Add(back);
-        ShowPage(new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+        var bar = new WrapPanel();
+        bar.Children.Add(send);
+        bar.Children.Add(refresh);
+        bar.Children.Add(cancel);
+        bar.Children.Add(back);
+        panel.Children.Add(bar);
+        ShowPage(rootLayout);
         if (autoStart && peers.SelectedItem is LanPeer)
             send.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
     }

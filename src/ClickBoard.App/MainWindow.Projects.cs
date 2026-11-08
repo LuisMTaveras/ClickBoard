@@ -18,97 +18,180 @@ public partial class MainWindow
         try
         {
             var names = await _viewModel.GetProjectsAsync();
-            var panel = new StackPanel { Margin = new Thickness(28), MaxWidth = 650, HorizontalAlignment = System.Windows.HorizontalAlignment.Left };
-            panel.Children.Add(new TextBlock { Text = "Espacios por proyecto", FontSize = 22, Margin = new Thickness(0, 0, 0, 12) });
-            panel.Children.Add(new TextBlock { Text = $"{selectedIds.Length} clips seleccionados para mover. El proyecto filtra también Favoritos, Imágenes y Desarrollo.", TextWrapping = TextWrapping.Wrap });
-            var list = CreateThemedListBox(new Thickness(0, 12, 0, 12), 240);
+            var (rootLayout, page, _) = CreateSubpageLayout(
+                "Proyectos",
+                "Espacios por proyecto",
+                $"{selectedIds.Length} clips seleccionados en el historial. El proyecto activo filtra automáticamente Favoritos, Imágenes y Desarrollo.");
+
+            // 1. Tarjeta: Proyecto Activo y Creación
+            var activeCard = new Border { Style = (Style)FindResource("CardBorder"), Padding = new Thickness(20, 16, 20, 16), Margin = new Thickness(0, 0, 0, 14) };
+            var activePanel = new StackPanel();
+            activeCard.Child = activePanel;
+
+            var activeHeader = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+            activeHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            activeHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            
+            var activeTitleStack = new StackPanel();
+            activeTitleStack.Children.Add(new TextBlock { Text = "Espacio de trabajo actual", FontSize = 15, FontWeight = FontWeights.SemiBold });
+            var curText = new TextBlock
+            {
+                Text = _viewModel.ActiveProject is null ? "Mostrando todos los proyectos (vista global)" : $"Proyecto activo: {_viewModel.ActiveProject}",
+                FontSize = 12,
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+            curText.SetResourceReference(ForegroundProperty, "AccentBrush");
+            activeTitleStack.Children.Add(curText);
+            Grid.SetColumn(activeTitleStack, 0);
+            activeHeader.Children.Add(activeTitleStack);
+
+            var viewAllBtn = new Button { Content = "Ver todos", Style = (Style)FindResource("SecondaryButton"), Padding = new Thickness(14, 5, 14, 5) };
+            viewAllBtn.Click += async (_, _) => { await _viewModel.SelectProjectAsync(null); ProjectChanged?.Invoke(null); ClosePage(); };
+            Grid.SetColumn(viewAllBtn, 1);
+            activeHeader.Children.Add(viewAllBtn);
+            activePanel.Children.Add(activeHeader);
+
+            var list = CreateThemedListBox(new Thickness(0, 0, 0, 12), height: 160);
             list.ItemsSource = names;
             list.SelectedItem = _viewModel.ActiveProject;
-            list.MinWidth = 400;
-            panel.Children.Add(list);
-            var name = new TextBox { Style = (Style)FindResource("SearchBox"), MaxLength = 80, ToolTip = "Nombre del nuevo proyecto" };
-            panel.Children.Add(name);
-            panel.Children.Add(new TextBlock { Text = "Detección automática", FontSize = 17, Margin = new Thickness(0, 20, 0, 8) });
-            panel.Children.Add(new TextBlock { Text = "Cada regla combina proceso y un fragmento del título. Ejemplo: Code + API-SanJuan. Seleccionar un proyecto manualmente desactiva la detección. Las nuevas capturas no se asignan automáticamente.", TextWrapping = TextWrapping.Wrap });
-            var automatic = new System.Windows.Controls.CheckBox
+            activePanel.Children.Add(list);
+
+            var projectActionsGrid = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+            projectActionsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            projectActionsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var openProjectBtn = new Button { Content = "Abrir proyecto seleccionado", Style = (Style)FindResource("PrimaryButton"), Margin = new Thickness(0, 0, 8, 0) };
+            openProjectBtn.Click += async (_, _) =>
             {
-                Content = "Detectar el proyecto por la ventana activa",
-                IsChecked = ProjectDetection.Current.Enabled,
-                Margin = new Thickness(0, 10, 0, 10)
+                if (list.SelectedItem is not string project) return;
+                await _viewModel.SelectProjectAsync(project); ProjectChanged?.Invoke(project); ClosePage();
             };
-            automatic.SetResourceReference(ForegroundProperty, "TextBrush");
-            panel.Children.Add(automatic);
-            panel.Children.Add(new TextBlock { Text = "Proceso (ejemplo: Code o devenv)", Margin = new Thickness(0, 6, 0, 5) });
-            var process = new TextBox { Style = (Style)FindResource("SearchBox"), MaxLength = 100 };
-            panel.Children.Add(process);
-            panel.Children.Add(new TextBlock { Text = "El título debe contener (ejemplo: API-SanJuan)", Margin = new Thickness(0, 6, 0, 5) });
-            var titleMatch = new TextBox { Style = (Style)FindResource("SearchBox"), MaxLength = 200 };
-            panel.Children.Add(titleMatch);
-            var rules = CreateThemedListBox(new Thickness(0, 10, 0, 8), 120);
-            rules.DisplayMemberPath = "Value";
-            panel.Children.Add(rules);
-            void RefreshRules() => rules.ItemsSource = ProjectDetection.Current.Rules
-                .Select(rule => new KeyValuePair<ProjectRule, string>(rule, $"{rule.Project}: {rule.Process} · {rule.TitleContains}"))
+            Grid.SetColumn(openProjectBtn, 0);
+            projectActionsGrid.Children.Add(openProjectBtn);
+
+            var moveSelectionBtn = new Button { Content = "Mover selección aquí", Style = (Style)FindResource("SecondaryButton") };
+            moveSelectionBtn.Click += async (_, _) =>
+            {
+                if (selectedIds.Length == 0 || list.SelectedItem is not string project) return;
+                await _viewModel.MoveToProjectAsync(selectedIds, project); ClipTitleChanged?.Invoke(this, EventArgs.Empty);
+                curText.Text = $"{selectedIds.Length} clips movidos a {project}.";
+            };
+            Grid.SetColumn(moveSelectionBtn, 1);
+            projectActionsGrid.Children.Add(moveSelectionBtn);
+            activePanel.Children.Add(projectActionsGrid);
+
+            // Fila para crear nuevo proyecto
+            var createGrid = new Grid();
+            createGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            createGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var nameBox = new TextBox { Style = (Style)FindResource("SearchBox"), MaxLength = 80, ToolTip = "Nombre del nuevo proyecto (ej. Cliente Acme)", Margin = new Thickness(0, 0, 8, 0) };
+            Grid.SetColumn(nameBox, 0);
+            createGrid.Children.Add(nameBox);
+            var createBtn = new Button { Content = "Crear proyecto", Style = (Style)FindResource("SecondaryButton"), Padding = new Thickness(14, 5, 14, 5) };
+            createBtn.Click += async (_, _) =>
+            {
+                var title = nameBox.Text.Trim(); if (title.Length == 0) return;
+                await _viewModel.CreateProjectAsync(title); list.ItemsSource = await _viewModel.GetProjectsAsync(); list.SelectedItem = title; nameBox.Clear();
+            };
+            Grid.SetColumn(createBtn, 1);
+            createGrid.Children.Add(createBtn);
+            activePanel.Children.Add(createGrid);
+
+            page.Children.Add(activeCard);
+
+            // 2. Tarjeta: Detección Automática de Reglas
+            var rulesCard = new Border { Style = (Style)FindResource("CardBorder"), Padding = new Thickness(20, 16, 20, 16), Margin = new Thickness(0, 0, 0, 14) };
+            var rulesPanel = new StackPanel();
+            rulesCard.Child = rulesPanel;
+
+            var rulesHeader = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+            rulesHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            rulesHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var rulesTitleStack = new StackPanel();
+            rulesTitleStack.Children.Add(new TextBlock { Text = "Detección inteligente de proyecto", FontSize = 15, FontWeight = FontWeights.SemiBold });
+            var rulesSub = new TextBlock { Text = "Cambia el proyecto activo automáticamente según la ventana y el archivo en primer plano.", FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0) };
+            rulesSub.SetResourceReference(ForegroundProperty, "MutedBrush");
+            rulesTitleStack.Children.Add(rulesSub);
+            Grid.SetColumn(rulesTitleStack, 0);
+            rulesHeader.Children.Add(rulesTitleStack);
+
+            var autoToggle = new System.Windows.Controls.CheckBox
+            {
+                Content = "Activar",
+                IsChecked = ProjectDetection.Current.Enabled,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(12, 0, 0, 0)
+            };
+            autoToggle.Click += (_, _) =>
+            {
+                try { ProjectDetection.Save(ProjectDetection.Current with { Enabled = autoToggle.IsChecked == true }); }
+                catch { autoToggle.IsChecked = ProjectDetection.Current.Enabled; }
+            };
+            Grid.SetColumn(autoToggle, 1);
+            rulesHeader.Children.Add(autoToggle);
+            rulesPanel.Children.Add(rulesHeader);
+
+            var rulesList = CreateThemedListBox(new Thickness(0, 0, 0, 10), height: 110);
+            rulesList.DisplayMemberPath = "Value";
+            rulesPanel.Children.Add(rulesList);
+            void RefreshRules() => rulesList.ItemsSource = ProjectDetection.Current.Rules
+                .Select(rule => new KeyValuePair<ProjectRule, string>(rule, $"{rule.Project}  ◀  {rule.Process} ({rule.TitleContains})"))
                 .ToArray();
             RefreshRules();
-            var feedback = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,8,0,8) };
-            automatic.Click += (_, _) =>
+
+            var ruleFormGrid = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+            ruleFormGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            ruleFormGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8, GridUnitType.Pixel) });
+            ruleFormGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            ruleFormGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8, GridUnitType.Pixel) });
+            ruleFormGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            ruleFormGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8, GridUnitType.Pixel) });
+            ruleFormGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var procBox = new TextBox { Style = (Style)FindResource("SearchBox"), MaxLength = 80, ToolTip = "Proceso (ej. Code o devenv)" };
+            Grid.SetColumn(procBox, 0);
+            ruleFormGrid.Children.Add(procBox);
+
+            var titleBox = new TextBox { Style = (Style)FindResource("SearchBox"), MaxLength = 120, ToolTip = "Título de ventana contiene (ej. MiApp)" };
+            Grid.SetColumn(titleBox, 2);
+            ruleFormGrid.Children.Add(titleBox);
+
+            var addRuleBtn = new Button { Content = "Añadir regla", Style = (Style)FindResource("SecondaryButton") };
+            addRuleBtn.Click += (_, _) =>
             {
-                try { ProjectDetection.Save(ProjectDetection.Current with { Enabled = automatic.IsChecked == true }); feedback.Text = "Preferencia aplicada."; }
-                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { automatic.IsChecked = ProjectDetection.Current.Enabled; feedback.Text = "No se pudo guardar la preferencia."; }
-            };
-            var buttons = new WrapPanel { Margin = new Thickness(0,12,0,0) }; panel.Children.Add(buttons);
-            void Button(string label, Func<Task> action)
-            {
-                var button = new Button { Content = label, Style = (Style)FindResource("SecondaryButton"), Margin = new Thickness(0,0,6,6) };
-                button.Click += async (_, _) =>
-                {
-                    button.IsEnabled = false;
-                    try { await action(); }
-                    catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException or ArgumentException) { feedback.Text = "No se pudo guardar el cambio de proyecto."; }
-                    finally { button.IsEnabled = true; }
-                };
-                buttons.Children.Add(button);
-            }
-            Button("Crear proyecto", async () =>
-            {
-                var title = name.Text.Trim(); if (title.Length == 0) { feedback.Text = "Escribe un nombre."; return; }
-                await _viewModel.CreateProjectAsync(title); list.ItemsSource = await _viewModel.GetProjectsAsync(); list.SelectedItem = title; name.Clear(); feedback.Text = "Proyecto creado.";
-            });
-            Button("Añadir regla al proyecto seleccionado", () =>
-            {
-                if (list.SelectedItem is not string project || string.IsNullOrWhiteSpace(process.Text) || string.IsNullOrWhiteSpace(titleMatch.Text))
-                { feedback.Text = "Selecciona un proyecto y completa proceso y título."; return Task.CompletedTask; }
-                var rule = new ProjectRule(project, process.Text.Trim(), titleMatch.Text.Trim());
+                if (list.SelectedItem is not string project || string.IsNullOrWhiteSpace(procBox.Text) || string.IsNullOrWhiteSpace(titleBox.Text)) return;
+                var rule = new ProjectRule(project, procBox.Text.Trim(), titleBox.Text.Trim());
                 var updated = ProjectDetection.Current.Rules.ToList();
                 if (!updated.Contains(rule)) updated.Add(rule);
-                ProjectDetection.Save(ProjectDetection.Current with { Rules = updated }); RefreshRules(); feedback.Text = "Regla guardada. Activa la detección para usarla."; return Task.CompletedTask;
-            });
-            Button("Eliminar regla seleccionada", () =>
+                ProjectDetection.Save(ProjectDetection.Current with { Rules = updated });
+                RefreshRules();
+                procBox.Clear(); titleBox.Clear();
+            };
+            Grid.SetColumn(addRuleBtn, 4);
+            ruleFormGrid.Children.Add(addRuleBtn);
+
+            var delRuleBtn = new Button { Content = "Eliminar", Style = (Style)FindResource("SecondaryButton") };
+            delRuleBtn.Click += (_, _) =>
             {
-                if (rules.SelectedItem is KeyValuePair<ProjectRule,string> selected)
-                { ProjectDetection.Save(ProjectDetection.Current with { Rules = ProjectDetection.Current.Rules.Where(rule => rule != selected.Key).ToList() }); RefreshRules(); feedback.Text = "Regla eliminada."; }
-                return Task.CompletedTask;
-            });
-            Button("Abrir proyecto", async () =>
-            {
-                if (list.SelectedItem is not string project) { feedback.Text = "Selecciona un proyecto."; return; }
-                await _viewModel.SelectProjectAsync(project); ProjectChanged?.Invoke(project); ClosePage();
-            });
-            Button("Ver todos", async () => { await _viewModel.SelectProjectAsync(null); ProjectChanged?.Invoke(null); ClosePage(); });
-            Button("Mover selección aquí", async () =>
-            {
-                if (selectedIds.Length == 0 || list.SelectedItem is not string project) { feedback.Text = "Selecciona clips en el historial y elige el proyecto de destino."; return; }
-                await _viewModel.MoveToProjectAsync(selectedIds, project); ClipTitleChanged?.Invoke(this, EventArgs.Empty); feedback.Text = $"{selectedIds.Length} clips movidos a {project}.";
-            });
-            Button("Quitar proyecto de selección", async () =>
-            {
-                if (selectedIds.Length == 0) { feedback.Text = "No hay clips seleccionados."; return; }
-                await _viewModel.MoveToProjectAsync(selectedIds, null); ClipTitleChanged?.Invoke(this, EventArgs.Empty); feedback.Text = "Asignación de proyecto retirada.";
-            });
-            Button("Volver", () => { ClosePage(); return Task.CompletedTask; });
-            panel.Children.Add(feedback);
-            ShowPage(new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+                if (rulesList.SelectedItem is KeyValuePair<ProjectRule, string> selected)
+                {
+                    ProjectDetection.Save(ProjectDetection.Current with { Rules = ProjectDetection.Current.Rules.Where(r => r != selected.Key).ToList() });
+                    RefreshRules();
+                }
+            };
+            Grid.SetColumn(delRuleBtn, 6);
+            ruleFormGrid.Children.Add(delRuleBtn);
+
+            rulesPanel.Children.Add(ruleFormGrid);
+            page.Children.Add(rulesCard);
+
+            // Pie: Botón Volver alineado a la izquierda
+            var backBtn = new Button { Content = "←  Volver al historial", Style = (Style)FindResource("SecondaryButton"), HorizontalAlignment = System.Windows.HorizontalAlignment.Left, Margin = new Thickness(0, 6, 0, 0) };
+            backBtn.Click += (_, _) => ClosePage();
+            page.Children.Add(backBtn);
+
+            ShowPage(rootLayout);
         }
         catch (Exception exception) when (exception is IOException or Microsoft.Data.Sqlite.SqliteException)
         { _viewModel.StatusMessage = "No se pudieron cargar los proyectos."; }

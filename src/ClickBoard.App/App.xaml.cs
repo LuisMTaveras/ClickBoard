@@ -126,7 +126,7 @@ public partial class App : System.Windows.Application
                 }
                 catch (Exception) { _mainViewModel.StatusMessage = "Clip eliminado; no se pudieron actualizar todas las vistas."; }
             };
-            _mainWindow.Show();
+            _mainWindow.ShowFromTray();
             _activationWait = ThreadPool.RegisterWaitForSingleObject(_activationEvent,
                 (_, _) => Dispatcher.BeginInvoke(new Action(ShowMainWindow)), null, Timeout.Infinite, executeOnlyOnce: false);
 
@@ -382,14 +382,17 @@ public partial class App : System.Windows.Application
                 var noClipsMessage = cleanedExports > 0
                     ? $"No hay clips que cumplan las condiciones de limpieza. Se eliminaron {cleanedExports} archivos temporales de exportación."
                     : "No hay clips que cumplan las condiciones de limpieza.";
-                System.Windows.MessageBox.Show(_mainWindow, noClipsMessage, "Limpieza guiada");
+                ModernDialogWindow.ShowInfo(_mainWindow, noClipsMessage, "Limpieza guiada");
                 return;
             }
             var preview = string.Join("\n", candidates.Take(8).Select(clip => "• " + clip.ShortPreview));
-            var answer = System.Windows.MessageBox.Show(_mainWindow,
-                $"Se eliminarán hasta {candidates.Length} clips de más de 30 días, sin título, colección ni etiquetas y no favoritos.\n\n{preview}\n\nLas copias locales identificadas como propias también se borrarán. Los archivos originales no se modifican. ¿Continuar?",
-                "Revisar limpieza", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
-            if (answer != MessageBoxResult.Yes) return;
+            var answer = ModernDialogWindow.ShowConfirm(_mainWindow,
+                $"Se eliminarán hasta {candidates.Length} clips de más de 30 días, sin título, colección ni etiquetas y no favoritos.\n\n{preview}\n\nLas copias locales identificadas como propias también se borrarán. Los archivos originales no se modifican.",
+                title: "Revisar limpieza",
+                confirmText: "Proceder con la limpieza",
+                cancelText: "Cancelar",
+                type: ModernDialogType.Warning);
+            if (!answer) return;
             _mainWindow.IsEnabled = false;
             if (_quickWindow is not null) _quickWindow.IsEnabled = false;
             if (_dockedWindow is not null) _dockedWindow.IsEnabled = false;
@@ -407,10 +410,10 @@ public partial class App : System.Windows.Application
             await Task.Run(() => StorageQuota.CleanExportCache(GetActiveClipboardFiles()));
             await RefreshOpenViewsAsync();
             _mainViewModel!.StatusMessage = $"Limpieza: {deleted} clips eliminados; {retainedCopies} copias conservadas por seguridad o por un error de acceso.";
-            System.Windows.MessageBox.Show(_mainWindow, _mainViewModel.StatusMessage, "Limpieza completada");
+            ModernDialogWindow.ShowInfo(_mainWindow, _mainViewModel.StatusMessage, "Limpieza completada");
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException or Microsoft.Data.Sqlite.SqliteException)
-        { System.Windows.MessageBox.Show(_mainWindow, "No se pudo completar la limpieza. El portapapeles o el almacenamiento no están disponibles.", "Limpieza guiada"); }
+        { ModernDialogWindow.ShowInfo(_mainWindow, "No se pudo completar la limpieza. El portapapeles o el almacenamiento no están disponibles.", "Limpieza guiada"); }
         finally
         {
             if (disabled)
@@ -431,8 +434,12 @@ public partial class App : System.Windows.Application
         {
             _trayIcon?.ShowBalloonTip(5000, "Solicitud de archivo", $"{offer.DeviceName} quiere enviarte {offer.FileName}.", System.Windows.Forms.ToolTipIcon.Info);
             _mainWindow?.ShowFromTray();
-            var text = $"{offer.DeviceName} quiere enviarte un archivo.\n\nArchivo: {offer.FileName}\nTamaño: {offer.Length / 1024.0 / 1024.0:F2} MB\nIdentidad: {offer.Fingerprint}\n\n¿Aceptar y guardar el archivo?";
-            return System.Windows.MessageBox.Show(_mainWindow, text, offer.IsContact ? "Archivo de un contacto" : "Archivo de un dispositivo desconocido", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes;
+            var text = $"{offer.DeviceName} quiere enviarte un archivo:\n\n• Archivo: {offer.FileName}\n• Tamaño: {offer.Length / 1024.0 / 1024.0:F2} MB\n• Identidad: {offer.Fingerprint}\n\n¿Aceptar y guardar el archivo?";
+            return ModernDialogWindow.ShowConfirm(_mainWindow, text,
+                title: offer.IsContact ? "Archivo de un contacto" : "Archivo de dispositivo de red",
+                confirmText: "Aceptar y guardar",
+                cancelText: "Rechazar",
+                type: ModernDialogType.Question);
         }).Task;
         _network.FileReceived += receipt => Dispatcher.BeginInvoke(new Action(() =>
         {

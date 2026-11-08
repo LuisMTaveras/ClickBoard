@@ -89,6 +89,24 @@ public partial class NetworkView : System.Windows.Controls.UserControl
         if (sender is System.Windows.Controls.Button { Tag: string id }) _network.CancelTransfer(id);
     }
 
+    private async void RetryTransfer_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button { Tag: string id }) return;
+        try
+        {
+            ActionStatusText.Text = "Reanudando envío…";
+            await _network.RetryTransferAsync(id);
+        }
+        catch (OperationCanceledException)
+        {
+            ActionStatusText.Text = "El reintento se canceló o agotó el tiempo de espera.";
+        }
+        catch (Exception exception)
+        {
+            ActionStatusText.Text = "No se pudo reanudar el envío: " + exception.Message;
+        }
+    }
+
     private void RefreshRows()
     {
         var selected = (PeersList.SelectedItem as PeerRow)?.Fingerprint ?? _selectedFingerprint;
@@ -229,10 +247,13 @@ public partial class NetworkView : System.Windows.Controls.UserControl
     {
         if (PeersList.SelectedItem is not PeerRow row) return;
         if (row.IsContact || row.Peer is null) return;
-        var answer = System.Windows.MessageBox.Show(Window.GetWindow(this),
-            $"Antes de confiar en este dispositivo, compara este código completo con el que aparece en su pantalla de Red y contactos:\n\n{row.Fingerprint}\n\n¿Coinciden los códigos? Los archivos de este contacto se guardarán automáticamente.",
-            "Verificar contacto", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
-        if (answer != MessageBoxResult.Yes) return;
+        var answer = ModernDialogWindow.ShowConfirm(Window.GetWindow(this),
+            $"Antes de confiar en este dispositivo, compara este código completo con el que aparece en su pantalla de Red y contactos:\n\n{row.Fingerprint}\n\n¿Coinciden los códigos en ambos equipos?",
+            title: "Verificar contacto",
+            confirmText: "Coinciden, agregar",
+            cancelText: "Cancelar",
+            type: ModernDialogType.Question);
+        if (!answer) return;
         try
         {
             _network.AddContact(row.Fingerprint, string.IsNullOrWhiteSpace(AliasBox.Text) ? row.DisplayName : AliasBox.Text);
@@ -246,8 +267,13 @@ public partial class NetworkView : System.Windows.Controls.UserControl
     private void RemoveContact_Click(object sender, RoutedEventArgs e)
     {
         if (PeersList.SelectedItem is not PeerRow { IsContact: true } row) return;
-        var answer = System.Windows.MessageBox.Show(Window.GetWindow(this), $"¿Quitar a «{row.DisplayName}» de tus contactos? Sus próximos archivos requerirán aceptación.", "Quitar contacto", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
-        if (answer != MessageBoxResult.Yes) return;
+        var answer = ModernDialogWindow.ShowConfirm(Window.GetWindow(this),
+            $"¿Quitar a «{row.DisplayName}» de tus contactos? Sus próximos archivos requerirán aceptación manual.",
+            title: "Quitar contacto",
+            confirmText: "Quitar contacto",
+            cancelText: "Cancelar",
+            type: ModernDialogType.Danger);
+        if (!answer) return;
         _aliasTimer.Stop();
         _pendingAliasFingerprint = null;
         try { _network.RemoveContact(row.Fingerprint); ActionStatusText.Text = "Contacto eliminado."; RefreshRows(); }

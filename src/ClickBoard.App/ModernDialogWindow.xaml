@@ -1,0 +1,44 @@
+<Window x:Class="ClickBoard.App.ModernDialogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ClipForge" Icon="/Assets/ClipForge.ico"
+        WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent"
+        ShowInTaskbar="False" WindowStartupLocation="CenterOwner" SizeToContent="WidthAndHeight"
+        MinWidth="380" MaxWidth="520" FontFamily="Segoe UI" Foreground="{DynamicResource TextBrush}">
+    <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="12" Padding="24,22,24,20">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="30" ShadowDepth="8" Opacity="0.45" Color="#000000" />
+        </Border.Effect>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Encabezado con Icono y Título -->
+            <Grid Grid.Row="0" Margin="0,0,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border x:Name="IconBadge" Width="36" Height="36" CornerRadius="10" Background="{DynamicResource AccentSoftBrush}" VerticalAlignment="Center" Margin="0,0,12,0">
+                    <TextBlock x:Name="IconGlyph" Text="&#xE783;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="TitleText" Text="Confirmación" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Mensaje -->
+            <TextBlock x:Name="MessageText" Grid.Row="1" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="20" Margin="0,0,0,22" />
+
+            <!-- Botones alineados a la derecha tipo WinUI / PowerToys -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="SecondaryBtn" Content="Cancelar" Style="{StaticResource SecondaryButton}" MinWidth="90" Height="32" Margin="0,0,8,0" Click="Secondary_Click" />
+                <Button x:Name="PrimaryBtn" Content="Aceptar" Style="{StaticResource PrimaryButton}" MinWidth="90" Height="32" Click="Primary_Click" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>
+
