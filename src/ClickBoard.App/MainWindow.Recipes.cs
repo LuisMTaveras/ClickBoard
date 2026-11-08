@@ -87,8 +87,16 @@ public partial class MainWindow
         });
         AddButton("Aplicar y ver resultado", () =>
         {
-            if (string.IsNullOrWhiteSpace(name.Text) || steps.Count == 0) { feedback.Text = "Añade nombre y pasos para aplicar la receta."; return; }
-            if (_viewModel.ApplyRecipe(new(name.Text.Trim(), steps.ToArray()))) ClosePage(); else feedback.Text = _viewModel.StatusMessage;
+            if (steps.Count == 0)
+            {
+                feedback.Text = "Añade al menos un paso para aplicar la receta.";
+                return;
+            }
+            var recipeName = string.IsNullOrWhiteSpace(name.Text) ? "Receta temporal" : name.Text.Trim();
+            if (_viewModel.ApplyRecipe(new(recipeName, steps.ToArray())))
+                ClosePage();
+            else
+                feedback.Text = _viewModel.StatusMessage;
         });
         AddButton("Volver", ClosePage);
         panel.Children.Add(feedback);

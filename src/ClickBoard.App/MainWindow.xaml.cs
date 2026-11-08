@@ -252,14 +252,34 @@ public partial class MainWindow : Window
     private async void LoadMore_Click(object sender, RoutedEventArgs e) => await _viewModel.LoadMoreAsync();
     private void AdvancedFilters_Click(object sender, RoutedEventArgs e)
     {
+        var existing = ClickBoard.Infrastructure.Storage.ClipSearchQuery.Parse(_viewModel.SearchText);
+        var existingFilters = existing.Filters
+            .GroupBy(f => f.Field, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Last().Value, StringComparer.OrdinalIgnoreCase);
+
         var panel = new StackPanel { Margin = new Thickness(28), MaxWidth = 600, HorizontalAlignment = System.Windows.HorizontalAlignment.Left };
-        panel.Children.Add(new TextBlock { Text = "Filtros avanzados", FontSize = 22, Margin = new Thickness(0,0,0,16) });
+        panel.Children.Add(new TextBlock { Text = "Filtros avanzados", FontSize = 22, Margin = new Thickness(0, 0, 0, 16) });
         var fields = new List<(string Key, System.Windows.Controls.TextBox Box)>();
-        foreach (var (key, label) in new[] { ("", "Contenido o título"), ("tipo", "Tipo: texto, imagen, archivo o extensión (pdf, zip…)"), ("etiqueta", "Etiqueta"), ("app", "Aplicación de origen"), ("proyecto", "Proyecto / colección"), ("antes", "Antes de: AAAA-MM-DD (UTC)") })
+        foreach (var (key, label) in new[]
         {
-            panel.Children.Add(new TextBlock { Text = label, Margin = new Thickness(0,8,0,5) });
-            var box = new System.Windows.Controls.TextBox { Style = (Style)FindResource("SearchBox"), MaxLength = 200 };
-            panel.Children.Add(box); fields.Add((key, box));
+            ("", "Contenido o título"),
+            ("tipo", "Tipo: texto, imagen, archivo o extensión (pdf, zip…)"),
+            ("etiqueta", "Etiqueta"),
+            ("app", "Aplicación de origen"),
+            ("proyecto", "Proyecto / colección"),
+            ("antes", "Antes de: AAAA-MM-DD (UTC)")
+        })
+        {
+            panel.Children.Add(new TextBlock { Text = label, Margin = new Thickness(0, 8, 0, 5) });
+            var initialValue = key.Length == 0 ? existing.Text : existingFilters.GetValueOrDefault(key, string.Empty);
+            var box = new System.Windows.Controls.TextBox
+            {
+                Style = (Style)FindResource("SearchBox"),
+                MaxLength = 200,
+                Text = initialValue
+            };
+            panel.Children.Add(box);
+            fields.Add((key, box));
         }
         var apply = new System.Windows.Controls.Button { Content = "Aplicar filtros", Style = (Style)FindResource("PrimaryButton"), Margin = new Thickness(0,18,0,8) };
         apply.Click += (_, _) =>

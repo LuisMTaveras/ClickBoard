@@ -23,6 +23,7 @@ public partial class MainWindow
             panel.Children.Add(new TextBlock { Text = $"{selectedIds.Length} clips seleccionados para mover. El proyecto filtra también Favoritos, Imágenes y Desarrollo.", TextWrapping = TextWrapping.Wrap });
             var list = CreateThemedListBox(new Thickness(0, 12, 0, 12), 240);
             list.ItemsSource = names;
+            list.SelectedItem = _viewModel.ActiveProject;
             list.MinWidth = 400;
             panel.Children.Add(list);
             var name = new TextBox { Style = (Style)FindResource("SearchBox"), MaxLength = 80, ToolTip = "Nombre del nuevo proyecto" };

@@ -6,8 +6,12 @@ public static class StorageQuota
 {
     private static readonly SemaphoreSlim Gate = new(1, 1);
     private static long _reservedBytes;
+    private static long _cachedUsedBytes;
+    private static long _cachedAtTicks;
 
     public static int MaximumMb { get; set; } = 2048;
+
+    public static void InvalidateCache() => Interlocked.Exchange(ref _cachedAtTicks, 0);
 
     public static async Task<IDisposable> AcquireAsync(long additionalBytes, CancellationToken token)
     {
@@ -17,9 +21,18 @@ public static class StorageQuota
         await Gate.WaitAsync(token);
         try
         {
-            var used = await Task.Run(() => GetUsedBytes(token), token);
-            var reserved = Interlocked.Read(ref _reservedBytes);
             var budgetBytes = (long)MaximumMb * 1024 * 1024;
+            var reserved = Interlocked.Read(ref _reservedBytes);
+            var now = Environment.TickCount64;
+            var cachedAt = Interlocked.Read(ref _cachedAtTicks);
+            var used = cachedAt != 0 && now - cachedAt < 3000
+                ? Interlocked.Read(ref _cachedUsedBytes)
+                : await RefreshUsedBytesAsync(token);
+
+            // Re-measure from disk if cached estimate is close to the budget limit.
+            if (additionalBytes > budgetBytes - used - reserved && cachedAt != 0 && now - cachedAt < 3000)
+                used = await RefreshUsedBytesAsync(token);
+
             if (additionalBytes > budgetBytes - used - reserved)
                 throw new StorageQuotaException($"Se alcanzó el presupuesto de almacenamiento ({MaximumMb} MB). Elimina clips o aumenta el límite en Configuración.");
 
@@ -30,6 +43,14 @@ public static class StorageQuota
         {
             Gate.Release();
         }
+    }
+
+    private static async Task<long> RefreshUsedBytesAsync(CancellationToken token)
+    {
+        var used = await Task.Run(() => GetUsedBytes(token), token);
+        Interlocked.Exchange(ref _cachedUsedBytes, used);
+        Interlocked.Exchange(ref _cachedAtTicks, Environment.TickCount64);
+        return used;
     }
 
     public static int CleanExportCache(ISet<string> activePaths)
@@ -51,6 +72,8 @@ public static class StorageQuota
             {
             }
         }
+        if (deleted > 0)
+            InvalidateCache();
         return deleted;
     }
 
@@ -75,7 +98,10 @@ public static class StorageQuota
         public void Dispose()
         {
             if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
                 Interlocked.Add(ref _reservedBytes, -reservedBytes);
+                Interlocked.Add(ref _cachedUsedBytes, reservedBytes);
+            }
         }
     }
 }
