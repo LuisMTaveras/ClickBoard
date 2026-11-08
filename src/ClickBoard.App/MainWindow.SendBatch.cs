@@ -25,7 +25,10 @@ public partial class MainWindow
         var panel = new StackPanel { Margin = new Thickness(28), MaxWidth = 650 };
         panel.Children.Add(new TextBlock { Text = "Enviar selección", FontSize = 22 });
         panel.Children.Add(new TextBlock { Text = $"{selected.Length} clips. Los textos se envían como TXT y las imágenes como PNG. Cada archivo puede requerir aceptación del receptor.", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,10,0,10) });
-        var peers = new ListBox { ItemsSource = service.GetPeers(), DisplayMemberPath = "Name", Height = 200 }; panel.Children.Add(peers);
+        var peers = CreateThemedListBox(height: 200);
+        peers.ItemsSource = service.GetPeers();
+        peers.DisplayMemberPath = "Name";
+        panel.Children.Add(peers);
         var status = new TextBlock { Text = "Elige un dispositivo disponible.", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,10,0,10) }; panel.Children.Add(status);
         var send = new Button { Content = "Enviar lote", Style = (Style)FindResource("PrimaryButton"), Margin = new Thickness(0,6,0,6) };
         var refresh = new Button { Content = "Actualizar dispositivos", Style = (Style)FindResource("SecondaryButton"), Margin = new Thickness(0,6,0,6) };

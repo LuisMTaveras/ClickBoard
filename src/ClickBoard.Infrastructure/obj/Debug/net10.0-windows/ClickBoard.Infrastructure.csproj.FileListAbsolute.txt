@@ -54,3 +54,4 @@ D:\Develop\ClickBoard\src\ClickBoard.Infrastructure\obj\Debug\net10.0-windows\Cl
 D:\Develop\ClickBoard\src\ClickBoard.Infrastructure\obj\Debug\net10.0-windows\refint\ClickBoard.Infrastructure.dll
 D:\Develop\ClickBoard\src\ClickBoard.Infrastructure\obj\Debug\net10.0-windows\ClickBoard.Infrastructure.pdb
 D:\Develop\ClickBoard\src\ClickBoard.Infrastructure\obj\Debug\net10.0-windows\ref\ClickBoard.Infrastructure.dll
+D:\Develop\ClickBoard\src\ClickBoard.Infrastructure\obj\Debug\net10.0-windows\ClickBoard.Infrastructure.sourcelink.json

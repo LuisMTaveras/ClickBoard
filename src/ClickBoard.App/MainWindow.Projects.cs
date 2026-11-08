@@ -19,19 +19,36 @@ public partial class MainWindow
         {
             var names = await _viewModel.GetProjectsAsync();
             var panel = new StackPanel { Margin = new Thickness(28), MaxWidth = 650, HorizontalAlignment = System.Windows.HorizontalAlignment.Left };
-            panel.Children.Add(new TextBlock { Text = "Espacios por proyecto", FontSize = 22, Margin = new Thickness(0,0,0,12) });
+            panel.Children.Add(new TextBlock { Text = "Espacios por proyecto", FontSize = 22, Margin = new Thickness(0, 0, 0, 12) });
             panel.Children.Add(new TextBlock { Text = $"{selectedIds.Length} clips seleccionados para mover. El proyecto filtra también Favoritos, Imágenes y Desarrollo.", TextWrapping = TextWrapping.Wrap });
-            var list = new ListBox { ItemsSource = names, Height = 240, MinWidth = 400, Margin = new Thickness(0,12,0,12) }; panel.Children.Add(list);
-            var name = new TextBox { Style = (Style)FindResource("SearchBox"), MaxLength = 80, ToolTip = "Nombre del nuevo proyecto" }; panel.Children.Add(name);
-            panel.Children.Add(new TextBlock { Text = "Detección automática", FontSize = 17, Margin = new Thickness(0,20,0,8) });
+            var list = CreateThemedListBox(new Thickness(0, 12, 0, 12), 240);
+            list.ItemsSource = names;
+            list.MinWidth = 400;
+            panel.Children.Add(list);
+            var name = new TextBox { Style = (Style)FindResource("SearchBox"), MaxLength = 80, ToolTip = "Nombre del nuevo proyecto" };
+            panel.Children.Add(name);
+            panel.Children.Add(new TextBlock { Text = "Detección automática", FontSize = 17, Margin = new Thickness(0, 20, 0, 8) });
             panel.Children.Add(new TextBlock { Text = "Cada regla combina proceso y un fragmento del título. Ejemplo: Code + API-SanJuan. Seleccionar un proyecto manualmente desactiva la detección. Las nuevas capturas no se asignan automáticamente.", TextWrapping = TextWrapping.Wrap });
-            var automatic = new System.Windows.Controls.CheckBox { Content = "Detectar el proyecto por la ventana activa", IsChecked = ProjectDetection.Current.Enabled, Margin = new Thickness(0,10,0,10) }; panel.Children.Add(automatic);
-            panel.Children.Add(new TextBlock { Text = "Proceso (ejemplo: Code o devenv)", Margin = new Thickness(0,6,0,5) });
-            var process = new TextBox { Style = (Style)FindResource("SearchBox"), MaxLength = 100 }; panel.Children.Add(process);
-            panel.Children.Add(new TextBlock { Text = "El título debe contener (ejemplo: API-SanJuan)", Margin = new Thickness(0,6,0,5) });
-            var titleMatch = new TextBox { Style = (Style)FindResource("SearchBox"), MaxLength = 200 }; panel.Children.Add(titleMatch);
-            var rules = new ListBox { Height = 120, Margin = new Thickness(0,10,0,8), DisplayMemberPath = "Value" }; panel.Children.Add(rules);
-            void RefreshRules() => rules.ItemsSource = ProjectDetection.Current.Rules.Select(rule => new KeyValuePair<ProjectRule,string>(rule, $"{rule.Project}: {rule.Process} · {rule.TitleContains}")).ToArray();
+            var automatic = new System.Windows.Controls.CheckBox
+            {
+                Content = "Detectar el proyecto por la ventana activa",
+                IsChecked = ProjectDetection.Current.Enabled,
+                Margin = new Thickness(0, 10, 0, 10)
+            };
+            automatic.SetResourceReference(ForegroundProperty, "TextBrush");
+            panel.Children.Add(automatic);
+            panel.Children.Add(new TextBlock { Text = "Proceso (ejemplo: Code o devenv)", Margin = new Thickness(0, 6, 0, 5) });
+            var process = new TextBox { Style = (Style)FindResource("SearchBox"), MaxLength = 100 };
+            panel.Children.Add(process);
+            panel.Children.Add(new TextBlock { Text = "El título debe contener (ejemplo: API-SanJuan)", Margin = new Thickness(0, 6, 0, 5) });
+            var titleMatch = new TextBox { Style = (Style)FindResource("SearchBox"), MaxLength = 200 };
+            panel.Children.Add(titleMatch);
+            var rules = CreateThemedListBox(new Thickness(0, 10, 0, 8), 120);
+            rules.DisplayMemberPath = "Value";
+            panel.Children.Add(rules);
+            void RefreshRules() => rules.ItemsSource = ProjectDetection.Current.Rules
+                .Select(rule => new KeyValuePair<ProjectRule, string>(rule, $"{rule.Project}: {rule.Process} · {rule.TitleContains}"))
+                .ToArray();
             RefreshRules();
             var feedback = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,8,0,8) };
             automatic.Click += (_, _) =>

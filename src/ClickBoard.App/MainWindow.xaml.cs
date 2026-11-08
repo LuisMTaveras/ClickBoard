@@ -61,6 +61,8 @@ public partial class MainWindow : Window
         Close();
     }
 
+    public object? CurrentPage => SettingsContent.Visibility == Visibility.Visible ? SettingsContent.Content : null;
+
     public void ShowPage(UIElement page)
     {
         SettingsContent.Content = page;
@@ -73,6 +75,22 @@ public partial class MainWindow : Window
         SettingsContent.Visibility = Visibility.Collapsed;
         SettingsContent.Content = null;
         Workspace.Visibility = Visibility.Visible;
+    }
+
+    internal System.Windows.Controls.ListBox CreateThemedListBox(Thickness? margin = null, double? height = null, System.Windows.Controls.SelectionMode selectionMode = System.Windows.Controls.SelectionMode.Single)
+    {
+        var list = new System.Windows.Controls.ListBox
+        {
+            SelectionMode = selectionMode,
+            Margin = margin ?? new Thickness(0),
+            BorderThickness = new Thickness(1)
+        };
+        if (height.HasValue)
+            list.Height = height.Value;
+        list.SetResourceReference(BackgroundProperty, "SurfaceBrush");
+        list.SetResourceReference(ForegroundProperty, "TextBrush");
+        list.SetResourceReference(BorderBrushProperty, "LineBrush");
+        return list;
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)
@@ -175,7 +193,9 @@ public partial class MainWindow : Window
         try
         {
             var clips = await _viewModel.GetTrashAsync();
-            var list = new System.Windows.Controls.ListBox { DisplayMemberPath = "ShortPreview", ItemsSource = clips, SelectionMode = System.Windows.Controls.SelectionMode.Extended, Margin = new Thickness(12) };
+            var list = CreateThemedListBox(new Thickness(12), selectionMode: System.Windows.Controls.SelectionMode.Extended);
+            list.DisplayMemberPath = "ShortPreview";
+            list.ItemsSource = clips;
             var restore = new System.Windows.Controls.Button { Content = "Restaurar selección", Style = (Style)FindResource("SecondaryButton"), Margin = new Thickness(6) };
             var delete = new System.Windows.Controls.Button { Content = "Eliminar definitivamente…", Style = (Style)FindResource("SecondaryButton"), Margin = new Thickness(6) };
             var back = new System.Windows.Controls.Button { Content = "Volver", Style = (Style)FindResource("SecondaryButton"), Margin = new Thickness(6) };
@@ -384,23 +404,8 @@ public partial class MainWindow : Window
         else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.F)
         {
             e.Handled = true;
-            var search = FindVisualChild<System.Windows.Controls.TextBox>(this);
-            search?.Focus();
-            search?.SelectAll();
+            MainSearchBox.Focus();
+            MainSearchBox.SelectAll();
         }
-    }
-
-    private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
-    {
-        for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
-        {
-            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
-            if (child is T match)
-                return match;
-            var descendant = FindVisualChild<T>(child);
-            if (descendant is not null)
-                return descendant;
-        }
-        return null;
     }
 }

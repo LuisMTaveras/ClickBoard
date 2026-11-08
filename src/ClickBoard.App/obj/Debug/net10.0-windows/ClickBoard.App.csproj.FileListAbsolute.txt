@@ -171,3 +171,4 @@ D:\Develop\ClickBoard\src\ClickBoard.App\obj\Debug\net10.0-windows\refint\ClipFo
 D:\Develop\ClickBoard\src\ClickBoard.App\obj\Debug\net10.0-windows\ClipForge.pdb
 D:\Develop\ClickBoard\src\ClickBoard.App\obj\Debug\net10.0-windows\ClickBoard.App.genruntimeconfig.cache
 D:\Develop\ClickBoard\src\ClickBoard.App\obj\Debug\net10.0-windows\ref\ClipForge.dll
+D:\Develop\ClickBoard\src\ClickBoard.App\obj\Debug\net10.0-windows\ClickBoard.App.sourcelink.json

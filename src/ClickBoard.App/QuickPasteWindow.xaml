@@ -7,6 +7,22 @@
         FontFamily="Segoe UI" Foreground="{DynamicResource TextBrush}" PreviewKeyDown="Window_KeyDown">
     <Window.Resources>
         <Style x:Key="QuickSearch" TargetType="TextBox" BasedOn="{StaticResource SearchBox}" />
+        <Style x:Key="QuickPrimaryText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource QuickSelectedTextBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="QuickMutedText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource QuickSelectedMutedBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
         <Style x:Key="QuickItem" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0,2" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="Background" Value="Transparent" />
@@ -45,16 +61,16 @@
             </Grid>
 
             <Grid Grid.Row="2">
-                <ListBox ScrollViewer.ScrollChanged="ClipList_ScrollChanged" x:Name="ClipList" ItemsSource="{Binding Clips}" SelectedItem="{Binding SelectedClip}" ItemContainerStyle="{StaticResource QuickItem}" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto" MouseDoubleClick="ClipList_DoubleClick" SelectionChanged="ClipList_SelectionChanged">
+                <ListBox ScrollViewer.ScrollChanged="ClipList_ScrollChanged" x:Name="ClipList" ItemsSource="{Binding Clips}" SelectedItem="{Binding SelectedClip}" ItemContainerStyle="{StaticResource QuickItem}" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto" MouseDoubleClick="ClipList_DoubleClick">
                     <ListBox.ItemTemplate><DataTemplate>
                         <Grid Height="68" Margin="2,0">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="48" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                             <Border Width="38" Height="38" CornerRadius="8" Background="{DynamicResource ThumbnailBrush}" VerticalAlignment="Center"><Image Source="{Binding ThumbnailBytes, Converter={StaticResource BytesToImageConverter}, ConverterParameter=128}" Stretch="UniformToFill" ClipToBounds="True" /></Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="9,0,10,0">
-                                <TextBlock Text="{Binding ShortPreview}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0"><TextBlock Text="{Binding KindLabel}" FontSize="10" Foreground="{DynamicResource MutedBrush}" /><TextBlock Text="  ·  " FontSize="10" Foreground="{DynamicResource FaintTextBrush}" /><TextBlock Text="{Binding SourceApp, TargetNullValue=Portapapeles}" FontSize="10" Foreground="{DynamicResource MutedBrush}" /></StackPanel>
+                                <TextBlock Text="{Binding ShortPreview}" FontSize="13" Style="{StaticResource QuickPrimaryText}" TextTrimming="CharacterEllipsis" />
+                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0"><TextBlock Text="{Binding KindLabel}" FontSize="10" Style="{StaticResource QuickMutedText}" /><TextBlock Text="  ·  " FontSize="10" Style="{StaticResource QuickMutedText}" /><TextBlock Text="{Binding SourceApp, TargetNullValue=Portapapeles}" FontSize="10" Style="{StaticResource QuickMutedText}" /></StackPanel>
                             </StackPanel>
-                            <TextBlock Grid.Column="2" Text="{Binding CreatedAtUtc, StringFormat='{}{0:HH:mm}'}" FontSize="10" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,9,0" />
+                            <TextBlock Grid.Column="2" Text="{Binding CreatedAtUtc, StringFormat='{}{0:HH:mm}'}" FontSize="10" Style="{StaticResource QuickMutedText}" VerticalAlignment="Center" Margin="0,0,9,0" />
                         </Grid>
                     </DataTemplate></ListBox.ItemTemplate>
                 </ListBox>

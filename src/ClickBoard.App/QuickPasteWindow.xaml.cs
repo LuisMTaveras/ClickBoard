@@ -22,11 +22,7 @@ public partial class QuickPasteWindow : Window
         DataContext = viewModel;
         UpdateSettings(settings);
         Deactivated += (_, _) => { if (_settings.CloseQuickOnFocusLoss) Hide(); };
-        Loaded += (_, _) =>
-        {
-            FocusSearch();
-            ApplyQuickRowColors();
-        };
+        Loaded += (_, _) => FocusSearch();
     }
 
     public void UpdateSettings(ClickBoardSettings settings)
@@ -50,36 +46,10 @@ public partial class QuickPasteWindow : Window
             ClipList.SelectedIndex = 0;
     }
 
-    private void ClipList_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
-        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(ApplyQuickRowColors));
-
     private async void ClipList_ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
         if (e.VerticalChange > 0 && e.VerticalOffset + e.ViewportHeight >= e.ExtentHeight - 3)
             await _viewModel.LoadMoreAsync();
-    }
-
-    private void ApplyQuickRowColors()
-    {
-        foreach (var item in ClipList.Items)
-        {
-            if (ClipList.ItemContainerGenerator.ContainerFromItem(item) is ListBoxItem container)
-                ApplyRowTextColors(container, ReferenceEquals(item, ClipList.SelectedItem));
-        }
-    }
-
-    private static void ApplyRowTextColors(DependencyObject parent, bool isSelected)
-    {
-        if (parent is TextBlock textBlock)
-        {
-            var key = isSelected
-                ? textBlock.FontSize <= 11 ? "QuickSelectedMutedBrush" : "QuickSelectedTextBrush"
-                : textBlock.FontSize <= 11 ? "MutedBrush" : "TextBrush";
-            textBlock.SetResourceReference(TextBlock.ForegroundProperty, key);
-        }
-
-        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
-            ApplyRowTextColors(VisualTreeHelper.GetChild(parent, index), isSelected);
     }
 
     private async void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)

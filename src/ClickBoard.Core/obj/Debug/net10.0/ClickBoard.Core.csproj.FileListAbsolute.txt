@@ -46,3 +46,4 @@ D:\Develop\ClickBoard\src\ClickBoard.Core\obj\Debug\net10.0\ClickBoard.Core.dll
 D:\Develop\ClickBoard\src\ClickBoard.Core\obj\Debug\net10.0\refint\ClickBoard.Core.dll
 D:\Develop\ClickBoard\src\ClickBoard.Core\obj\Debug\net10.0\ClickBoard.Core.pdb
 D:\Develop\ClickBoard\src\ClickBoard.Core\obj\Debug\net10.0\ref\ClickBoard.Core.dll
+D:\Develop\ClickBoard\src\ClickBoard.Core\obj\Debug\net10.0\ClickBoard.Core.sourcelink.json

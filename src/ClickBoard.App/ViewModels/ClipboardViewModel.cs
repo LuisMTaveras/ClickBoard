@@ -109,30 +109,66 @@ public partial class ClipboardViewModel : ObservableObject, IDisposable
                 : "Copia texto, enlaces, imágenes o archivos desde cualquier aplicación. ClipForge los guardará aquí para que vuelvas a encontrarlos."
         : "Prueba con otras palabras o cambia el filtro para ver más elementos.";
 
+    private bool _suppressSearchDebounce;
+
+    public void ResetSearchText()
+    {
+        _searchCancellation?.Cancel();
+        _searchCancellation?.Dispose();
+        _searchCancellation = null;
+        if (string.IsNullOrEmpty(SearchText))
+            return;
+        _suppressSearchDebounce = true;
+        try
+        {
+            SearchText = string.Empty;
+        }
+        finally
+        {
+            _suppressSearchDebounce = false;
+        }
+    }
+
     partial void OnSearchTextChanged(string value)
     {
         _requestedCount = 100;
         OnPropertyChanged(nameof(EmptyTitle));
         OnPropertyChanged(nameof(EmptyDescription));
-        _ = DebounceSearchAsync();
+        if (!_suppressSearchDebounce)
+            _ = DebounceSearchAsync();
     }
 
     partial void OnCurrentSectionChanged(string value) => OnPropertyChanged(nameof(SectionDescription));
 
-    partial void OnSelectedClipChanged(ClipboardClip? value)
+    partial void OnSelectedClipChanged(ClipboardClip? oldValue, ClipboardClip? newValue)
     {
-        _previewCancellation?.Cancel();
-        _previewCancellation?.Dispose();
-        _previewCancellation = null;
-        _selectedPayload = value?.IsPayloadLoaded == true ? value : null;
-        TitleDraft = value?.Title ?? string.Empty;
-        CollectionDraft = value?.Collection ?? string.Empty;
-        TagsDraft = value?.Tags ?? string.Empty;
-        _transformedText = null;
-        _jsonFormatted = false;
-        _previousTransformedText = null;
-        _canUndoTransform = false;
-        Variables.Clear();
+        var sameClip = oldValue is not null && newValue is not null
+            && oldValue.Id == newValue.Id
+            && oldValue.ContentHash == newValue.ContentHash;
+
+        if (!sameClip)
+        {
+            _previewCancellation?.Cancel();
+            _previewCancellation?.Dispose();
+            _previewCancellation = null;
+            _selectedPayload = newValue?.IsPayloadLoaded == true ? newValue : null;
+        }
+        else if (newValue?.IsPayloadLoaded == true)
+        {
+            _selectedPayload = newValue;
+        }
+
+        TitleDraft = newValue?.Title ?? string.Empty;
+        CollectionDraft = newValue?.Collection ?? string.Empty;
+        TagsDraft = newValue?.Tags ?? string.Empty;
+        if (!sameClip)
+        {
+            _transformedText = null;
+            _jsonFormatted = false;
+            _previousTransformedText = null;
+            _canUndoTransform = false;
+            Variables.Clear();
+        }
         OnPropertyChanged(nameof(HasVariables));
         OnPropertyChanged(nameof(CanTransform));
         OnPropertyChanged(nameof(CanUndoTransform));
@@ -145,10 +181,12 @@ public partial class ClipboardViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(PrimaryPasteLabel));
         OnPropertyChanged(nameof(FavoriteActionLabel));
         OnPropertyChanged(nameof(SelectedImageBytes));
-        if (_loadSelectionPreview && value is { IsPayloadLoaded: false })
+        if (_loadSelectionPreview && newValue is { IsPayloadLoaded: false } && _selectedPayload is null)
         {
+            _previewCancellation?.Cancel();
+            _previewCancellation?.Dispose();
             _previewCancellation = new CancellationTokenSource();
-            _ = LoadSelectionAsync(value, _previewCancellation.Token);
+            _ = LoadSelectionAsync(newValue, _previewCancellation.Token);
         }
     }
 
@@ -157,7 +195,7 @@ public partial class ClipboardViewModel : ObservableObject, IDisposable
         try
         {
             var payload = await _repository.GetByIdAsync(clip.Id, token);
-            if (token.IsCancellationRequested || !ReferenceEquals(SelectedClip, clip)) return;
+            if (token.IsCancellationRequested || SelectedClip?.Id != clip.Id) return;
             _selectedPayload = payload;
             var values = Variables.ToDictionary(variable => variable.Name, variable => variable.Value, StringComparer.Ordinal);
             Variables.Clear();
@@ -173,7 +211,7 @@ public partial class ClipboardViewModel : ObservableObject, IDisposable
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (RegexMatchTimeoutException) { StatusMessage = "No se pudieron identificar las variables de esta plantilla."; }
         catch (Exception exception) when (exception is Microsoft.Data.Sqlite.SqliteException or System.IO.IOException)
-        { if (ReferenceEquals(SelectedClip, clip)) StatusMessage = "No se pudo cargar el contenido del clip."; }
+        { if (SelectedClip?.Id == clip.Id) StatusMessage = "No se pudo cargar el contenido del clip."; }
     }
 
     public async Task LoadMoreAsync()
@@ -572,8 +610,17 @@ public partial class ClipboardViewModel : ObservableObject, IDisposable
         if (clip.FilesJson is not null)
         {
             var paths = JsonSerializer.Deserialize<string[]>(clip.FilesJson) ?? [];
-            var active = System.Windows.Clipboard.GetFileDropList().Cast<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
-            if (paths.Any(active.Contains)) throw new InvalidOperationException("El portapapeles todavía usa estos archivos.");
+            var active = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (System.Windows.Clipboard.ContainsFileDropList())
+            {
+                foreach (string? item in System.Windows.Clipboard.GetFileDropList())
+                {
+                    if (!string.IsNullOrEmpty(item))
+                        active.Add(System.IO.Path.GetFullPath(item));
+                }
+            }
+            if (paths.Any(path => active.Contains(System.IO.Path.GetFullPath(path))))
+                throw new InvalidOperationException("El portapapeles todavía usa estos archivos.");
         }
         if (!await _repository.PermanentlyDeleteAsync(clip.Id, deletedBefore)) return false;
         return await Task.Run(() => OwnedFileStore.DeleteCopies(clip.FilesJson));

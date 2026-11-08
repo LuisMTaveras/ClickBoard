@@ -167,35 +167,76 @@ public sealed class SqliteClipboardRepository : IClipboardRepository
             object argument = value;
             switch (field)
             {
-                case "app": predicate = $"c.source_app LIKE {parameter} ESCAPE '\\'"; argument = BuildLikePattern(value); break;
-                case "etiqueta": predicate = $"c.tags LIKE {parameter} ESCAPE '\\'"; argument = BuildLikePattern(value); break;
-                case "proyecto": predicate = $"c.collection = {parameter} COLLATE NOCASE"; break;
-                case "antes": predicate = $"c.created_utc < {parameter}"; break;
+                case "app":
+                    predicate = $"c.source_app LIKE {parameter} ESCAPE '\\'";
+                    argument = BuildLikePattern(value);
+                    break;
+                case "etiqueta":
+                    predicate = $"c.tags LIKE {parameter} ESCAPE '\\'";
+                    argument = BuildLikePattern(value);
+                    break;
+                case "proyecto":
+                    predicate = $"c.collection = {parameter} COLLATE NOCASE";
+                    break;
+                case "antes":
+                    predicate = $"c.created_utc < {parameter}";
+                    if (DateOnly.TryParseExact(value, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var beforeDate))
+                        argument = new DateTimeOffset(beforeDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)).ToString("O");
+                    break;
                 default:
                     predicate = value.ToLowerInvariant() switch
                     {
-                        "texto" => "c.kind=0", "imagen" => "c.kind=1", "archivo" => "c.kind=2",
+                        "texto" => "c.kind=0",
+                        "imagen" => "c.kind=1",
+                        "archivo" => "c.kind=2",
                         _ => $"EXISTS (SELECT 1 FROM json_each(c.files_json) file WHERE lower(file.value) LIKE {parameter} ESCAPE '\\')"
                     };
-                    if (predicate.Contains(parameter)) argument = "%" + value.TrimStart('.').ToLowerInvariant().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_").Insert(0, ".");
+                    if (predicate.Contains(parameter))
+                        argument = "%" + value.TrimStart('.').ToLowerInvariant().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_").Insert(0, ".");
                     break;
             }
             filters.Add(predicate);
-            if (predicate.Contains(parameter)) command.Parameters.AddWithValue(parameter, argument);
+            if (predicate.Contains(parameter))
+                command.Parameters.AddWithValue(parameter, argument);
         }
-        var metadata = "(c.title LIKE $like ESCAPE '\\' OR c.collection LIKE $like ESCAPE '\\' OR c.tags LIKE $like ESCAPE '\\')";
-        var condition = string.IsNullOrEmpty(query) ? "1=1" : fts is not null
-            ? $"(c.id IN (SELECT rowid FROM clips_fts WHERE clips_fts MATCH $fts) OR {metadata})"
-            : $"(c.preview_text LIKE $like ESCAPE '\\' OR c.text_content LIKE $like ESCAPE '\\' OR {metadata})";
+
+        string condition;
+        if (string.IsNullOrEmpty(query))
+        {
+            condition = "1=1";
+        }
+        else if (fts is not null)
+        {
+            var terms = Regex.Matches(query, "[\\p{L}\\p{N}_]+").Select(m => m.Value).Take(12).ToArray();
+            var termPredicates = new List<string>(terms.Length);
+            for (var i = 0; i < terms.Length; i++)
+            {
+                var ftsParam = $"$ftsTerm{i}";
+                var likeParam = $"$likeTerm{i}";
+                command.Parameters.AddWithValue(ftsParam, $"\"{terms[i]}\"*");
+                command.Parameters.AddWithValue(likeParam, BuildLikePattern(terms[i]));
+                termPredicates.Add($"(c.id IN (SELECT rowid FROM clips_fts WHERE clips_fts MATCH {ftsParam}) OR c.title LIKE {likeParam} ESCAPE '\\' OR c.collection LIKE {likeParam} ESCAPE '\\' OR c.tags LIKE {likeParam} ESCAPE '\\')");
+            }
+            condition = termPredicates.Count > 0 ? string.Join(" AND ", termPredicates) : "1=1";
+        }
+        else
+        {
+            var metadata = "(c.title LIKE $like ESCAPE '\\' OR c.collection LIKE $like ESCAPE '\\' OR c.tags LIKE $like ESCAPE '\\')";
+            condition = $"(c.preview_text LIKE $like ESCAPE '\\' OR c.text_content LIKE $like ESCAPE '\\' OR {metadata})";
+            command.Parameters.AddWithValue("$like", BuildLikePattern(query));
+        }
+
         command.CommandText = $"""
             SELECT {Projection(false)} FROM clips c
-            WHERE c.deleted_utc IS NULL AND ({(filters.Count == 0 ? "1=1" : string.Join(" AND ", filters))}) AND ({condition}) AND ($kind IS NULL OR c.kind=$kind) AND ($favorites=0 OR c.is_favorite=1)
-            AND ($project IS NULL OR c.collection=$project COLLATE NOCASE)
-            AND ($dev=0 OR COALESCE(c.category,clip_category(c.kind,c.text_content)) IN (1,2,3,4,5))
+            WHERE c.deleted_utc IS NULL
+              AND ({(filters.Count == 0 ? "1=1" : string.Join(" AND ", filters))})
+              AND ({condition})
+              AND ($kind IS NULL OR c.kind=$kind)
+              AND ($favorites=0 OR c.is_favorite=1)
+              AND ($project IS NULL OR c.collection=$project COLLATE NOCASE)
+              AND ($dev=0 OR COALESCE(c.category,clip_category(c.kind,c.text_content)) IN (1,2,3,4,5))
             ORDER BY c.is_favorite DESC,c.created_utc DESC,c.id DESC LIMIT $limit OFFSET $offset
             """;
-        if (fts is not null && query.Length > 0) command.Parameters.AddWithValue("$fts", fts);
-        if (query.Length > 0) command.Parameters.AddWithValue("$like", BuildLikePattern(query));
         command.Parameters.AddWithValue("$kind", kind is null ? DBNull.Value : (object)(int)kind);
         command.Parameters.AddWithValue("$favorites", favoritesOnly ? 1 : 0);
         command.Parameters.AddWithValue("$dev", developerOnly ? 1 : 0);
@@ -204,114 +245,208 @@ public sealed class SqliteClipboardRepository : IClipboardRepository
         command.Parameters.AddWithValue("$offset", Math.Max(offset, 0));
         using var reader = command.ExecuteReader();
         var results = new List<ClipboardClip>();
-        while (reader.Read()) results.Add(ReadClip(reader, false));
+        while (reader.Read())
+            results.Add(ReadClip(reader, false));
         return results;
     }
 
-    private static string Projection(bool full) => $"c.id,c.kind,c.preview_text,{(full ? "c.text_content,c.html_content,c.rtf_content,c.image_bytes" : "substr(c.text_content,1,2048),NULL,NULL,NULL")},c.files_json,c.created_utc,c.source_app,c.is_favorite,c.content_hash,c.title,c.collection,c.tags,COALESCE(c.category,clip_category(c.kind,c.text_content)),c.thumbnail_bytes";
+    private static string Projection(bool full) =>
+        $"c.id,c.kind,c.preview_text,{(full ? "c.text_content,c.html_content,c.rtf_content,c.image_bytes" : "substr(c.text_content,1,2048),NULL,NULL,NULL")},c.files_json,c.created_utc,c.source_app,c.is_favorite,c.content_hash,c.title,c.collection,c.tags,COALESCE(c.category,clip_category(c.kind,c.text_content)),c.thumbnail_bytes";
+
     private static ClipboardClip ReadClip(SqliteDataReader r, bool full) => new()
     {
-        Id=r.GetInt64(0), Kind=(ClipKind)r.GetInt32(1), PreviewText=r.GetString(2), TextContent=r.IsDBNull(3)?null:r.GetString(3),
-        HtmlContent=r.IsDBNull(4)?null:r.GetString(4), RtfContent=r.IsDBNull(5)?null:r.GetString(5), ImageBytes=r.IsDBNull(6)?null:(byte[])r[6],
-        FilesJson=r.IsDBNull(7)?null:r.GetString(7), CreatedAtUtc=DateTimeOffset.Parse(r.GetString(8)), SourceApp=r.IsDBNull(9)?null:r.GetString(9),
-        IsFavorite=r.GetInt32(10)!=0, ContentHash=r.GetString(11), Title=r.IsDBNull(12)?null:r.GetString(12), Collection=r.IsDBNull(13)?null:r.GetString(13),
-        Tags=r.IsDBNull(14)?null:r.GetString(14), Category=(ClipboardContentCategory)r.GetInt32(15), ThumbnailBytes=r.IsDBNull(16)?null:(byte[])r[16], IsPayloadLoaded=full
+        Id = r.GetInt64(0),
+        Kind = (ClipKind)r.GetInt32(1),
+        PreviewText = r.GetString(2),
+        TextContent = r.IsDBNull(3) ? null : r.GetString(3),
+        HtmlContent = r.IsDBNull(4) ? null : r.GetString(4),
+        RtfContent = r.IsDBNull(5) ? null : r.GetString(5),
+        ImageBytes = r.IsDBNull(6) ? null : (byte[])r[6],
+        FilesJson = r.IsDBNull(7) ? null : r.GetString(7),
+        CreatedAtUtc = DateTimeOffset.Parse(r.GetString(8)),
+        SourceApp = r.IsDBNull(9) ? null : r.GetString(9),
+        IsFavorite = r.GetInt32(10) != 0,
+        ContentHash = r.GetString(11),
+        Title = r.IsDBNull(12) ? null : r.GetString(12),
+        Collection = r.IsDBNull(13) ? null : r.GetString(13),
+        Tags = r.IsDBNull(14) ? null : r.GetString(14),
+        Category = (ClipboardContentCategory)r.GetInt32(15),
+        ThumbnailBytes = r.IsDBNull(16) ? null : (byte[])r[16],
+        IsPayloadLoaded = full
     };
-    public Task SetFavoriteAsync(long id,bool favorite,CancellationToken cancellationToken=default) => UpdateAsync("UPDATE clips SET is_favorite=$value WHERE id=$id",id,favorite?1:0,cancellationToken);
-    public Task SetTitleAsync(long id,string? title,CancellationToken cancellationToken=default) => UpdateAsync("UPDATE clips SET title=$value WHERE id=$id",id,Normalize(title),cancellationToken);
-    public Task SetMetadataAsync(long clipId,string? title,string? collection,string? tags,CancellationToken cancellationToken=default) => Task.Run(() =>
+
+    public Task SetFavoriteAsync(long id, bool favorite, CancellationToken cancellationToken = default) =>
+        UpdateAsync("UPDATE clips SET is_favorite=$value WHERE id=$id", id, favorite ? 1 : 0, cancellationToken);
+
+    public Task SetTitleAsync(long id, string? title, CancellationToken cancellationToken = default) =>
+        UpdateAsync("UPDATE clips SET title=$value WHERE id=$id", id, Normalize(title), cancellationToken);
+
+    public Task SetMetadataAsync(long clipId, string? title, string? collection, string? tags, CancellationToken cancellationToken = default) => Task.Run(() =>
     {
-        using var connection=OpenConnection(); using var command=connection.CreateCommand();
-        command.CommandText="UPDATE clips SET title=$title,collection=$collection,tags=$tags WHERE id=$id";
-        command.Parameters.AddWithValue("$id",clipId); command.Parameters.AddWithValue("$title",Normalize(title));
-        command.Parameters.AddWithValue("$collection",Normalize(collection)); command.Parameters.AddWithValue("$tags",Normalize(tags)); command.ExecuteNonQuery();
-    },cancellationToken);
-    public Task<bool> DeleteAsync(long clipId,CancellationToken cancellationToken=default) => Task.Run(() =>
-    {
-        using var connection=OpenConnection(); using var command=connection.CreateCommand(); command.CommandText="UPDATE clips SET deleted_utc=$deleted WHERE id=$id AND deleted_utc IS NULL";
-        command.Parameters.AddWithValue("$deleted",DateTimeOffset.UtcNow.ToString("O"));
-        command.Parameters.AddWithValue("$id",clipId); return command.ExecuteNonQuery()>0;
-    },cancellationToken);
-    public Task<IReadOnlyList<ClipboardClip>> GetTrashAsync(CancellationToken cancellationToken=default) => Task.Run<IReadOnlyList<ClipboardClip>>(() =>
-    {
-        using var connection=OpenConnection(); using var command=connection.CreateCommand();
-        command.CommandText=$"SELECT {Projection(false)} FROM clips c WHERE c.deleted_utc IS NOT NULL ORDER BY c.deleted_utc DESC LIMIT 1000";
-        using var reader=command.ExecuteReader(); var results=new List<ClipboardClip>();
-        while(reader.Read()) results.Add(ReadClip(reader,false)); return results;
-    },cancellationToken);
-    public Task<bool> RestoreAsync(long clipId,CancellationToken cancellationToken=default) => Task.Run(() =>
-    {
-        using var connection=OpenConnection(); using var command=connection.CreateCommand();
-        command.CommandText="UPDATE clips SET deleted_utc=NULL WHERE id=$id AND deleted_utc IS NOT NULL";
-        command.Parameters.AddWithValue("$id",clipId); return command.ExecuteNonQuery()>0;
-    },cancellationToken);
-    public Task<bool> PermanentlyDeleteAsync(long clipId, DateTimeOffset? deletedBefore = null) => Task.Run(() =>
-    {
-        using var connection=OpenConnection(); using var command=connection.CreateCommand();
-        command.CommandText="DELETE FROM clips WHERE id=$id AND deleted_utc IS NOT NULL AND ($before IS NULL OR deleted_utc<$before)";
-        command.Parameters.AddWithValue("$before", (object?)deletedBefore?.ToUniversalTime().ToString("O") ?? DBNull.Value);
-        command.Parameters.AddWithValue("$id",clipId); return command.ExecuteNonQuery()>0;
-    });
-    public Task<IReadOnlyList<ClipboardClip>> GetExpiredTrashAsync(DateTimeOffset before) => Task.Run<IReadOnlyList<ClipboardClip>>(() =>
-    {
-        using var connection=OpenConnection(); using var command=connection.CreateCommand();
-        command.CommandText=$"SELECT {Projection(false)} FROM clips c WHERE c.deleted_utc<$before ORDER BY c.deleted_utc LIMIT 1000";
-        command.Parameters.AddWithValue("$before",before.ToUniversalTime().ToString("O"));
-        using var reader=command.ExecuteReader(); var results=new List<ClipboardClip>(); while(reader.Read()) results.Add(ReadClip(reader,false)); return results;
-    });
-    private Task UpdateAsync(string sql,long id,object value,CancellationToken token) => Task.Run(() =>
-    {
-        using var connection=OpenConnection(); using var command=connection.CreateCommand(); command.CommandText=sql;
-        command.Parameters.AddWithValue("$id",id); command.Parameters.AddWithValue("$value",value); command.ExecuteNonQuery();
-    },token);
-    public Task<IReadOnlyList<ClipboardClip>> GetCleanupCandidatesAsync(DateTimeOffset before, CancellationToken cancellationToken = default) => Task.Run<IReadOnlyList<ClipboardClip>>(() =>
-    {
-        using var connection = OpenConnection(); using var command = connection.CreateCommand();
-        command.CommandText = $"SELECT {Projection(false)} FROM clips c WHERE c.deleted_utc IS NULL AND c.created_utc < $before AND c.is_favorite=0 AND trim(COALESCE(c.title,''))='' AND trim(COALESCE(c.collection,''))='' AND trim(COALESCE(c.tags,''))='' ORDER BY c.created_utc LIMIT 1000";
-        command.Parameters.AddWithValue("$before", before.ToUniversalTime().ToString("O"));
-        var results = new List<ClipboardClip>(); using var reader = command.ExecuteReader();
-        while (reader.Read()) results.Add(ReadClip(reader, false));
-        return results;
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE clips SET title=$title,collection=$collection,tags=$tags WHERE id=$id";
+        command.Parameters.AddWithValue("$id", clipId);
+        command.Parameters.AddWithValue("$title", Normalize(title));
+        command.Parameters.AddWithValue("$collection", Normalize(collection));
+        command.Parameters.AddWithValue("$tags", Normalize(tags));
+        command.ExecuteNonQuery();
     }, cancellationToken);
-    public Task<bool> DeleteIfUnprotectedAsync(long clipId, DateTimeOffset before, CancellationToken cancellationToken = default) => Task.Run(() =>
+
+    public Task<bool> DeleteAsync(long clipId, CancellationToken cancellationToken = default) => Task.Run(() =>
     {
-        using var connection = OpenConnection(); using var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM clips WHERE id=$id AND created_utc<$before AND is_favorite=0 AND trim(COALESCE(title,''))='' AND trim(COALESCE(collection,''))='' AND trim(COALESCE(tags,''))=''";
-        command.Parameters.AddWithValue("$id", clipId); command.Parameters.AddWithValue("$before", before.ToUniversalTime().ToString("O"));
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE clips SET deleted_utc=$deleted WHERE id=$id AND deleted_utc IS NULL";
+        command.Parameters.AddWithValue("$deleted", DateTimeOffset.UtcNow.ToString("O"));
+        command.Parameters.AddWithValue("$id", clipId);
         return command.ExecuteNonQuery() > 0;
     }, cancellationToken);
-    private static object Normalize(string? text) => string.IsNullOrWhiteSpace(text)?DBNull.Value:text.Trim();
+
+    public Task<IReadOnlyList<ClipboardClip>> GetTrashAsync(CancellationToken cancellationToken = default) => Task.Run<IReadOnlyList<ClipboardClip>>(() =>
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT {Projection(false)} FROM clips c WHERE c.deleted_utc IS NOT NULL ORDER BY c.deleted_utc DESC LIMIT 1000";
+        using var reader = command.ExecuteReader();
+        var results = new List<ClipboardClip>();
+        while (reader.Read())
+            results.Add(ReadClip(reader, false));
+        return results;
+    }, cancellationToken);
+
+    public Task<bool> RestoreAsync(long clipId, CancellationToken cancellationToken = default) => Task.Run(() =>
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE clips SET deleted_utc=NULL WHERE id=$id AND deleted_utc IS NOT NULL";
+        command.Parameters.AddWithValue("$id", clipId);
+        return command.ExecuteNonQuery() > 0;
+    }, cancellationToken);
+
+    public Task<bool> PermanentlyDeleteAsync(long clipId, DateTimeOffset? deletedBefore = null) => Task.Run(() =>
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM clips WHERE id=$id AND deleted_utc IS NOT NULL AND ($before IS NULL OR deleted_utc<$before)";
+        command.Parameters.AddWithValue("$before", (object?)deletedBefore?.ToUniversalTime().ToString("O") ?? DBNull.Value);
+        command.Parameters.AddWithValue("$id", clipId);
+        return command.ExecuteNonQuery() > 0;
+    });
+
+    public Task<IReadOnlyList<ClipboardClip>> GetExpiredTrashAsync(DateTimeOffset before) => Task.Run<IReadOnlyList<ClipboardClip>>(() =>
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT {Projection(false)} FROM clips c WHERE c.deleted_utc<$before ORDER BY c.deleted_utc LIMIT 1000";
+        command.Parameters.AddWithValue("$before", before.ToUniversalTime().ToString("O"));
+        using var reader = command.ExecuteReader();
+        var results = new List<ClipboardClip>();
+        while (reader.Read())
+            results.Add(ReadClip(reader, false));
+        return results;
+    });
+
+    private Task UpdateAsync(string sql, long id, object value, CancellationToken token) => Task.Run(() =>
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.Parameters.AddWithValue("$id", id);
+        command.Parameters.AddWithValue("$value", value);
+        command.ExecuteNonQuery();
+    }, token);
+
+    public Task<IReadOnlyList<ClipboardClip>> GetCleanupCandidatesAsync(DateTimeOffset before, CancellationToken cancellationToken = default) => Task.Run<IReadOnlyList<ClipboardClip>>(() =>
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT {Projection(false)} FROM clips c WHERE c.deleted_utc IS NULL AND c.created_utc < $before AND c.is_favorite=0 AND trim(COALESCE(c.title,''))='' AND trim(COALESCE(c.collection,''))='' AND trim(COALESCE(c.tags,''))='' ORDER BY c.created_utc LIMIT 1000";
+        command.Parameters.AddWithValue("$before", before.ToUniversalTime().ToString("O"));
+        var results = new List<ClipboardClip>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+            results.Add(ReadClip(reader, false));
+        return results;
+    }, cancellationToken);
+
+    public Task<bool> DeleteIfUnprotectedAsync(long clipId, DateTimeOffset before, CancellationToken cancellationToken = default) => Task.Run(() =>
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM clips WHERE id=$id AND deleted_utc IS NULL AND created_utc<$before AND is_favorite=0 AND trim(COALESCE(title,''))='' AND trim(COALESCE(collection,''))='' AND trim(COALESCE(tags,''))=''";
+        command.Parameters.AddWithValue("$id", clipId);
+        command.Parameters.AddWithValue("$before", before.ToUniversalTime().ToString("O"));
+        return command.ExecuteNonQuery() > 0;
+    }, cancellationToken);
+
+    private static object Normalize(string? text) =>
+        string.IsNullOrWhiteSpace(text) ? DBNull.Value : text.Trim();
+
     public Task<IReadOnlyList<string>> GetProjectsAsync() => Task.Run<IReadOnlyList<string>>(() =>
     {
-        using var connection=OpenConnection(); using var command=connection.CreateCommand();
-        command.CommandText="SELECT name FROM projects UNION SELECT collection FROM clips WHERE collection IS NOT NULL AND trim(collection)<>'' ORDER BY 1 COLLATE NOCASE";
-        using var reader=command.ExecuteReader(); var names=new List<string>(); while(reader.Read()) names.Add(reader.GetString(0)); return names;
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT name FROM projects UNION SELECT collection FROM clips WHERE collection IS NOT NULL AND trim(collection)<>'' ORDER BY 1 COLLATE NOCASE";
+        using var reader = command.ExecuteReader();
+        var names = new List<string>();
+        while (reader.Read())
+            names.Add(reader.GetString(0));
+        return names;
     });
+
     public Task CreateProjectAsync(string name) => Task.Run(() =>
     {
-        if (string.IsNullOrWhiteSpace(name) || name.Trim().Length>80) throw new ArgumentException("Nombre de proyecto inválido.");
-        using var connection=OpenConnection(); using var command=connection.CreateCommand(); command.CommandText="INSERT OR IGNORE INTO projects(name) VALUES($name)";
-        command.Parameters.AddWithValue("$name",name.Trim()); command.ExecuteNonQuery();
+        if (string.IsNullOrWhiteSpace(name) || name.Trim().Length > 80)
+            throw new ArgumentException("Nombre de proyecto inválido.");
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "INSERT OR IGNORE INTO projects(name) VALUES($name)";
+        command.Parameters.AddWithValue("$name", name.Trim());
+        command.ExecuteNonQuery();
     });
+
     public Task MoveToProjectAsync(IReadOnlyList<long> ids, string? project) => Task.Run(() =>
     {
-        if (project is not null && (string.IsNullOrWhiteSpace(project) || project.Length>80)) throw new ArgumentException("Nombre de proyecto inválido.");
-        using var connection=OpenConnection(); using var transaction=connection.BeginTransaction(); using var command=connection.CreateCommand(); command.Transaction=transaction;
-        command.CommandText="UPDATE clips SET collection=$project WHERE id=$id AND deleted_utc IS NULL";
-        command.Parameters.AddWithValue("$project",(object?)project ?? DBNull.Value); var parameter=command.Parameters.Add("$id",SqliteType.Integer);
-        foreach(var id in ids) { parameter.Value=id; command.ExecuteNonQuery(); } transaction.Commit();
+        if (project is not null && (string.IsNullOrWhiteSpace(project) || project.Length > 80))
+            throw new ArgumentException("Nombre de proyecto inválido.");
+        using var connection = OpenConnection();
+        using var transaction = connection.BeginTransaction();
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "UPDATE clips SET collection=$project WHERE id=$id AND deleted_utc IS NULL";
+        command.Parameters.AddWithValue("$project", (object?)project ?? DBNull.Value);
+        var parameter = command.Parameters.Add("$id", SqliteType.Integer);
+        foreach (var id in ids)
+        {
+            parameter.Value = id;
+            command.ExecuteNonQuery();
+        }
+        transaction.Commit();
     });
+
     private SqliteConnection OpenConnection()
     {
-        var connection=new SqliteConnection(_connectionString); connection.Open();
-        connection.CreateFunction<long,string?,long>("clip_category",(kind,text)=>(long)ClipboardContentClassifier.Classify((ClipKind)kind,text),isDeterministic:true);
+        var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+        connection.CreateFunction<long, string?, long>(
+            "clip_category",
+            (kind, text) => (long)ClipboardContentClassifier.Classify((ClipKind)kind, text),
+            isDeterministic: true);
         return connection;
     }
+
     private static string? BuildFtsQuery(string query)
     {
-        var terms=Regex.Matches(query,"[\\p{L}\\p{N}_]+").Select(m=>m.Value).Take(12).Select(s=>$"\"{s}\"*").ToArray();
-        return terms.Length==0?null:string.Join(" AND ",terms);
+        var terms = Regex.Matches(query, "[\\p{L}\\p{N}_]+")
+            .Select(m => m.Value)
+            .Take(12)
+            .Select(s => $"\"{s}\"*")
+            .ToArray();
+        return terms.Length == 0 ? null : string.Join(" AND ", terms);
     }
-    private static string BuildLikePattern(string text)=>"%"+text.Replace("\\","\\\\").Replace("%","\\%").Replace("_","\\_")+"%";
+
+    private static string BuildLikePattern(string text) =>
+        "%" + text.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
 }
 

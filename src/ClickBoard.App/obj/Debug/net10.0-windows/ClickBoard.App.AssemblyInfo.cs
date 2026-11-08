@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ClipForge")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("0.2.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.2.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.2.0+39855e55b29cec6e59159931b67c324e16ee3a21")]
 [assembly: System.Reflection.AssemblyProductAttribute("ClipForge")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ClipForge")]
 [assembly: System.Reflection.AssemblyVersionAttribute("0.2.0.0")]

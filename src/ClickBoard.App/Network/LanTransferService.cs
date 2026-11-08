@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
@@ -319,7 +320,7 @@ public sealed class LanTransferService : IDisposable
             using (var ssl = new SslStream(client.GetStream(), false, (_, certificate, _, _) => certificate is not null))
             {
                 _transferCancellation[id] = timeout;
-                timeout.CancelAfter(TimeSpan.FromMinutes(5));
+                timeout.CancelAfter(TimeSpan.FromSeconds(15));
                 await ssl.AuthenticateAsServerAsync(new SslServerAuthenticationOptions
                 {
                     ServerCertificate = _certificate,
@@ -342,6 +343,7 @@ public sealed class LanTransferService : IDisposable
                 var alias = GetContactName(fingerprint);
                 var offer = new LanOffer(fingerprint, alias ?? name, fileName, header.Length, alias is not null);
                 ReportTransfer(new LanTransferUpdate(id, offer.DeviceName, fileName, 0, header.Length, true, "Esperando aceptación"));
+                timeout.CancelAfter(TimeSpan.FromMinutes(5));
                 var accepted = GetContactAutoReceive(fingerprint) || (RequestApproval is not null && await RequestApproval(offer).WaitAsync(timeout.Token));
                 if (!accepted)
                 {
@@ -458,9 +460,23 @@ public sealed class LanTransferService : IDisposable
             while (!token.IsCancellationRequested)
             {
                 var bytes = JsonSerializer.SerializeToUtf8Bytes(new Announcement("ClipForge-LAN-1", DisplayName, _fingerprint!), JsonOptions);
-                try { await udp.SendAsync(bytes, new IPEndPoint(IPAddress.Broadcast, Port), token); }
-                catch (SocketException) { StatusChanged?.Invoke("No se pudo anunciar el dispositivo en la red local."); }
-                foreach (var pair in _peers.Where(p => DateTimeOffset.UtcNow - p.Value.LastSeen > TimeSpan.FromSeconds(18))) _peers.TryRemove(pair.Key, out _);
+                var targets = GetBroadcastAddresses();
+                var anySent = false;
+                foreach (var target in targets)
+                {
+                    try
+                    {
+                        await udp.SendAsync(bytes, new IPEndPoint(target, Port), token);
+                        anySent = true;
+                    }
+                    catch (SocketException)
+                    {
+                    }
+                }
+                if (!anySent)
+                    StatusChanged?.Invoke("No se pudo anunciar el dispositivo en la red local.");
+                foreach (var pair in _peers.Where(p => DateTimeOffset.UtcNow - p.Value.LastSeen > TimeSpan.FromSeconds(18)))
+                    _peers.TryRemove(pair.Key, out _);
                 Changed?.Invoke();
                 await Task.Delay(TimeSpan.FromSeconds(4), token);
             }
@@ -469,25 +485,95 @@ public sealed class LanTransferService : IDisposable
         catch (ObjectDisposedException) { }
     }
 
+    private static IReadOnlyList<IPAddress> GetBroadcastAddresses()
+    {
+        var addresses = new HashSet<IPAddress> { IPAddress.Broadcast };
+        try
+        {
+            foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (nic.OperationalStatus != OperationalStatus.Up || nic.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                    continue;
+                foreach (var unicast in nic.GetIPProperties().UnicastAddresses)
+                {
+                    if (unicast.Address.AddressFamily != AddressFamily.InterNetwork || !IsPrivateAddress(unicast.Address))
+                        continue;
+                    var mask = unicast.IPv4Mask;
+                    if (mask is null || Equals(mask, IPAddress.Any))
+                        continue;
+                    var ipBytes = unicast.Address.GetAddressBytes();
+                    var maskBytes = mask.GetAddressBytes();
+                    var broadcastBytes = new byte[4];
+                    for (var i = 0; i < 4; i++)
+                        broadcastBytes[i] = (byte)(ipBytes[i] | ~maskBytes[i]);
+                    addresses.Add(new IPAddress(broadcastBytes));
+                }
+            }
+        }
+        catch (NetworkInformationException)
+        {
+        }
+        return addresses.ToArray();
+    }
+
     private void EnsureIdentity()
     {
         if (_certificate is not null) return;
         Directory.CreateDirectory(_directory);
         var identityPath = Path.Combine(_directory, "identity.dat");
-        if (!File.Exists(identityPath))
+        for (var attempt = 0; attempt < 2; attempt++)
         {
-            using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-            var request = new CertificateRequest("CN=ClipForge", key, HashAlgorithmName.SHA256);
-            request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, true));
-            request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature, true));
-            using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(10));
-            var protectedData = ProtectedData.Protect(certificate.Export(X509ContentType.Pkcs12), null, DataProtectionScope.CurrentUser);
-            try { using var file = new FileStream(identityPath, FileMode.CreateNew, FileAccess.Write, FileShare.None); file.Write(protectedData); }
-            catch (IOException) when (File.Exists(identityPath)) { }
+            if (!File.Exists(identityPath))
+            {
+                using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+                var request = new CertificateRequest("CN=ClipForge", key, HashAlgorithmName.SHA256);
+                request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, true));
+                request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature, true));
+                using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(10));
+                var protectedData = ProtectedData.Protect(certificate.Export(X509ContentType.Pkcs12), null, DataProtectionScope.CurrentUser);
+                try
+                {
+                    using var file = new FileStream(identityPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                    file.Write(protectedData);
+                }
+                catch (IOException) when (File.Exists(identityPath))
+                {
+                }
+            }
+            try
+            {
+                var pfx = ProtectedData.Unprotect(File.ReadAllBytes(identityPath), null, DataProtectionScope.CurrentUser);
+                try
+                {
+                    try
+                    {
+                        _certificate = X509CertificateLoader.LoadPkcs12(pfx, null, X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.Exportable);
+                    }
+                    catch (CryptographicException)
+                    {
+                        _certificate = X509CertificateLoader.LoadPkcs12(pfx, null, X509KeyStorageFlags.DefaultKeySet);
+                    }
+                }
+                finally
+                {
+                    CryptographicOperations.ZeroMemory(pfx);
+                }
+                if (_certificate.NotAfter <= DateTime.UtcNow)
+                {
+                    _certificate.Dispose();
+                    _certificate = null;
+                    File.Delete(identityPath);
+                    continue;
+                }
+                break;
+            }
+            catch (CryptographicException) when (attempt == 0)
+            {
+                try { File.Delete(identityPath); } catch (IOException) { }
+            }
         }
-        var pfx = ProtectedData.Unprotect(File.ReadAllBytes(identityPath), null, DataProtectionScope.CurrentUser);
-        try { _certificate = X509CertificateLoader.LoadPkcs12(pfx, null, X509KeyStorageFlags.EphemeralKeySet); }
-        finally { CryptographicOperations.ZeroMemory(pfx); }
+        if (_certificate is null)
+            throw new CryptographicException("No se pudo inicializar el certificado de identidad de red.");
         _fingerprint = FingerprintOf(_certificate);
     }
 

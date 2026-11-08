@@ -30,12 +30,15 @@ public partial class MainWindow
         var panel = new StackPanel { Margin = new Thickness(28), MaxWidth = 650, HorizontalAlignment = System.Windows.HorizontalAlignment.Left };
         panel.Children.Add(new TextBlock { Text = "Recetas · " + (project ?? "Generales"), FontSize = 22, Margin = new Thickness(0,0,0,12) });
         panel.Children.Add(new TextBlock { Text = "Se aplican al texto de la vista previa en el orden indicado. Deshacer revierte la receta completa.", TextWrapping = TextWrapping.Wrap });
-        var saved = new ComboBox { ItemsSource = recipes, DisplayMemberPath = "Name", Margin = new Thickness(0,12,0,8), MinWidth = 400 };
+        var saved = new ComboBox { ItemsSource = recipes, DisplayMemberPath = "Name", Margin = new Thickness(0, 12, 0, 8), MinWidth = 400 };
         panel.Children.Add(saved);
-        panel.Children.Add(new TextBlock { Text = "Nombre", Margin = new Thickness(0,8,0,5) });
-        var name = new TextBox { MaxLength = 80, Style = (Style)FindResource("SearchBox") }; panel.Children.Add(name);
-        var actions = new ComboBox { ItemsSource = TransformationRecipes.Actions, DisplayMemberPath = "Value", SelectedValuePath = "Key", SelectedIndex = 0, Margin = new Thickness(0,12,0,8) }; panel.Children.Add(actions);
-        var list = new ListBox { Height = 180, Margin = new Thickness(0,8,0,8) }; panel.Children.Add(list);
+        panel.Children.Add(new TextBlock { Text = "Nombre", Margin = new Thickness(0, 8, 0, 5) });
+        var name = new TextBox { MaxLength = 80, Style = (Style)FindResource("SearchBox") };
+        panel.Children.Add(name);
+        var actions = new ComboBox { ItemsSource = TransformationRecipes.Actions, DisplayMemberPath = "Value", SelectedValuePath = "Key", SelectedIndex = 0, Margin = new Thickness(0, 12, 0, 8) };
+        panel.Children.Add(actions);
+        var list = CreateThemedListBox(new Thickness(0, 8, 0, 8), 180);
+        panel.Children.Add(list);
         steps.CollectionChanged += (_, _) =>
         {
             var selection = list.SelectedIndex;

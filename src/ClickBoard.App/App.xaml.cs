@@ -209,7 +209,7 @@ public partial class App : System.Windows.Application
             _quickWindow = new QuickPasteWindow(_quickViewModel!, _settings);
             _quickWindow.Closed += (_, _) => _quickWindow = null;
         }
-        _quickViewModel!.SearchText = string.Empty;
+        _quickViewModel!.ResetSearchText();
         _ = _quickViewModel.SetSectionAsync("Historial");
         _quickWindow.Show();
         _quickWindow.Activate();
@@ -223,10 +223,12 @@ public partial class App : System.Windows.Application
             _dockedWindow = new DockedQuickWindow(_dockedViewModel!, _settings);
             _dockedWindow.Closed += (_, _) => _dockedWindow = null;
         }
-        _dockedViewModel!.SearchText = string.Empty;
+        _dockedViewModel!.ResetSearchText();
+        _dockedWindow.ResetFilterSelection();
         _ = _dockedViewModel.SetKindFilterAsync(null);
         _dockedWindow.PlaceAtScreenEdge();
         _dockedWindow.Show();
+        _dockedWindow.PlaceAtScreenEdge();
         _dockedWindow.Activate();
         _dockedWindow.FocusSearch();
     }
@@ -257,7 +259,9 @@ public partial class App : System.Windows.Application
 
     private void ShowSettings()
     {
-        if (_mainWindow is null || _settingsView is not null)
+        if (_mainWindow is null)
+            return;
+        if (_mainWindow.CurrentPage is SettingsView)
             return;
 
         _settingsView = new SettingsView(_settings, _messageHost?.HotkeyStatus ?? string.Empty, SaveSettings);
@@ -306,7 +310,8 @@ public partial class App : System.Windows.Application
 
     private void ShowNetwork()
     {
-        if (_mainWindow is null || _network is null || _networkView is not null) return;
+        if (_mainWindow is null || _network is null) return;
+        if (_mainWindow.CurrentPage is NetworkView) return;
         _networkView = new NetworkView(_network);
         _networkView.CloseRequested += (_, _) => { _mainWindow.ClosePage(); _networkView = null; };
         _mainWindow.ShowPage(_networkView);
@@ -342,7 +347,14 @@ public partial class App : System.Windows.Application
             var active = GetActiveClipboardFiles();
             var candidates = (await _repository.GetCleanupCandidatesAsync(before)).Where(clip => !UsesActiveFiles(clip, active)).ToArray();
             if (candidates.Length == 0)
-            { System.Windows.MessageBox.Show(_mainWindow, "No hay clips que cumplan las condiciones de limpieza.", "Limpieza guiada"); return; }
+            {
+                var cleanedExports = await Task.Run(() => StorageQuota.CleanExportCache(active));
+                var noClipsMessage = cleanedExports > 0
+                    ? $"No hay clips que cumplan las condiciones de limpieza. Se eliminaron {cleanedExports} archivos temporales de exportación."
+                    : "No hay clips que cumplan las condiciones de limpieza.";
+                System.Windows.MessageBox.Show(_mainWindow, noClipsMessage, "Limpieza guiada");
+                return;
+            }
             var preview = string.Join("\n", candidates.Take(8).Select(clip => "• " + clip.ShortPreview));
             var answer = System.Windows.MessageBox.Show(_mainWindow,
                 $"Se eliminarán hasta {candidates.Length} clips de más de 30 días, sin título, colección ni etiquetas y no favoritos.\n\n{preview}\n\nLas copias locales identificadas como propias también se borrarán. Los archivos originales no se modifican. ¿Continuar?",
@@ -362,6 +374,7 @@ public partial class App : System.Windows.Application
                 if (UsesActiveFiles(clip, GetActiveClipboardFiles())) { retainedCopies++; continue; }
                 if (!await Task.Run(() => OwnedFileStore.DeleteCopies(clip.FilesJson))) retainedCopies++;
             }
+            await Task.Run(() => StorageQuota.CleanExportCache(GetActiveClipboardFiles()));
             await RefreshOpenViewsAsync();
             _mainViewModel!.StatusMessage = $"Limpieza: {deleted} clips eliminados; {retainedCopies} copias conservadas por seguridad o por un error de acceso.";
             System.Windows.MessageBox.Show(_mainWindow, _mainViewModel.StatusMessage, "Limpieza completada");

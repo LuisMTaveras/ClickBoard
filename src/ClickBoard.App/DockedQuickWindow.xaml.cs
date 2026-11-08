@@ -47,12 +47,24 @@ public partial class DockedQuickWindow : Window
         SetWindowPos(handle, IntPtr.Zero, area.Left + 12, area.Top + 12, 0, 0, 0x0001 | 0x0004 | 0x0010);
         var dpi = GetDpiForWindow(handle);
         var scale = (dpi == 0 ? 96 : dpi) / 96.0;
-        MinHeight = Math.Min(560, Math.Max(100, (area.Height - 24) / scale));
-        MinWidth = Math.Min(430, Math.Max(100, (area.Width - 24) / scale));
-        var pixelWidth = (int)(Math.Min(Width, (area.Width - 24) / scale) * scale);
-        var pixelHeight = (int)(Math.Min(820, (area.Height - 24) / scale) * scale);
-        SetWindowPos(handle, IntPtr.Zero, area.Right - pixelWidth - 12, area.Top + 12, pixelWidth, pixelHeight, 0x0004 | 0x0010);
+        var dipMaxWidth = Math.Max(100, (area.Width - 24) / scale);
+        var dipMaxHeight = Math.Max(100, (area.Height - 24) / scale);
+        MinHeight = Math.Min(560, dipMaxHeight);
+        MinWidth = Math.Min(430, dipMaxWidth);
+        var targetDipWidth = Math.Min(double.IsNaN(Width) || Width <= 0 ? 490 : Width, dipMaxWidth);
+        var targetDipHeight = Math.Min(820, dipMaxHeight);
+        Width = targetDipWidth;
+        Height = targetDipHeight;
+        var pixelWidth = (int)Math.Round(targetDipWidth * scale);
+        var pixelHeight = (int)Math.Round(targetDipHeight * scale);
+        var pixelX = area.Right - pixelWidth - 12;
+        var pixelY = area.Top + 12;
+        Left = pixelX / scale;
+        Top = pixelY / scale;
+        SetWindowPos(handle, IntPtr.Zero, pixelX, pixelY, pixelWidth, pixelHeight, 0x0004 | 0x0010);
     }
+
+    public void ResetFilterSelection() => SetActiveFilter(AllFilterButton);
 
     [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr window);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)]
