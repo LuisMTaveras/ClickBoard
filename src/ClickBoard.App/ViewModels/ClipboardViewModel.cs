@@ -54,6 +54,29 @@ public partial class ClipboardViewModel : ObservableObject, IDisposable
     private string _titleDraft = string.Empty;
     [ObservableProperty] private string _collectionDraft = string.Empty;
     [ObservableProperty] private string _tagsDraft = string.Empty;
+    [ObservableProperty] private bool _isTemporaryMode;
+    [ObservableProperty] private bool _isCapturePaused;
+
+    public bool HasCaptureModeBanner => IsTemporaryMode || IsCapturePaused;
+    public string CaptureModeBanner => IsCapturePaused
+        ? "Captura pausada · no se añaden copias"
+        : IsTemporaryMode
+            ? "Modo temporal · solo en esta sesión"
+            : string.Empty;
+    public string TemporaryModeButtonLabel => IsTemporaryMode ? "Salir de modo temporal" : "Modo temporal";
+
+    partial void OnIsTemporaryModeChanged(bool value)
+    {
+        OnPropertyChanged(nameof(HasCaptureModeBanner));
+        OnPropertyChanged(nameof(CaptureModeBanner));
+        OnPropertyChanged(nameof(TemporaryModeButtonLabel));
+    }
+
+    partial void OnIsCapturePausedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(HasCaptureModeBanner));
+        OnPropertyChanged(nameof(CaptureModeBanner));
+    }
 
     private ClipKind? _kindFilter;
     private bool _favoritesOnly;
@@ -94,7 +117,15 @@ public partial class ClipboardViewModel : ObservableObject, IDisposable
     public string SelectedPreviewText => _transformedText ?? _selectedPayload?.DetailText ?? SelectedClip?.DetailText ?? string.Empty;
     public string JsonActionLabel => _jsonFormatted ? "Compactar JSON" : "Formatear JSON";
     public string PrimaryPasteLabel => _pasteService.DestinationLabel;
-    public void RefreshDestination() => OnPropertyChanged(nameof(PrimaryPasteLabel));
+    public string PasteDestinationHint => _pasteService.TargetApplicationName is { Length: > 0 } app
+        ? $"Pegar en {app}"
+        : "Pegar en portapapeles";
+
+    public void RefreshDestination()
+    {
+        OnPropertyChanged(nameof(PrimaryPasteLabel));
+        OnPropertyChanged(nameof(PasteDestinationHint));
+    }
     public string FavoriteActionLabel => SelectedClip?.IsFavorite == true ? "Quitar de favoritos" : "Marcar como favorito";
     public string EmptyTitle => _developerOnly
         ? (string.IsNullOrWhiteSpace(SearchText) ? "Tu espacio de desarrollo está listo" : "No encontramos contenido de desarrollo")

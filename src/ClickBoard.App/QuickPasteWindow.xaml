@@ -49,7 +49,28 @@
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Image Source="/Assets/ClipForge.ico" Width="31" Height="31" />
-                    <StackPanel Margin="10,0,0,0"><TextBlock Text="ClipForge" FontSize="16" FontWeight="SemiBold" /><TextBlock Text="Selector rápido" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" /></StackPanel>
+                    <StackPanel Margin="10,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="ClipForge" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <Border CornerRadius="6" Padding="7,2" Margin="9,0,0,0" Background="{DynamicResource AccentSoftBrush}" VerticalAlignment="Center">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasCaptureModeBanner}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding CaptureModeBanner}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" />
+                            </Border>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                            <TextBlock Text="Selector rápido  ·  " FontSize="11" Foreground="{DynamicResource MutedBrush}" />
+                            <TextBlock Text="{Binding PasteDestinationHint}" FontSize="11" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </StackPanel>
                 </StackPanel>
                 <Button Grid.Column="1" Content="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="13" Foreground="{DynamicResource MutedBrush}" Background="Transparent" BorderThickness="0" Width="32" Height="32" Cursor="Hand" Click="Close_Click" />
             </Grid>
@@ -87,7 +108,7 @@
                 <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="↑  ↓" FontSize="11" Foreground="{DynamicResource TextBrush}" /><TextBlock Text="  Navegar" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="7,0,16,0" />
-                        <Border Background="{DynamicResource QuickKeyBrush}" CornerRadius="5" Padding="7,3"><TextBlock Text="Enter" FontSize="10" Foreground="{DynamicResource QuickKeyTextBrush}" /></Border><TextBlock Text="  Pegar" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,0" />
+                        <Border Background="{DynamicResource QuickKeyBrush}" CornerRadius="5" Padding="7,3"><TextBlock Text="Enter" FontSize="10" Foreground="{DynamicResource QuickKeyTextBrush}" /></Border><TextBlock Text="{Binding PrimaryPasteLabel}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,0" />
                     </StackPanel>
                     <TextBlock x:Name="QuickActionHint" Grid.Column="1" Text="Enter Pegar · Shift+Enter Texto plano · Ctrl+F Favorito · Esc Cerrar" FontSize="10" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" TextAlignment="Right" />
                 </Grid>

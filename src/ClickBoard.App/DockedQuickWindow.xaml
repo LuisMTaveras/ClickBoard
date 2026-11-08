@@ -39,7 +39,28 @@
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Image Source="/Assets/ClipForge.ico" Width="34" Height="34" />
-                    <StackPanel Margin="10,0,0,0"><TextBlock Text="ClipForge" FontSize="16" FontWeight="SemiBold" /><TextBlock Text="Panel rápido" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" /></StackPanel>
+                    <StackPanel Margin="10,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="ClipForge" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <Border CornerRadius="6" Padding="7,2" Margin="8,0,0,0" Background="{DynamicResource GreenSoftBrush}" VerticalAlignment="Center">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasCaptureModeBanner}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding CaptureModeBanner}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource GreenBrush}" />
+                            </Border>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                            <TextBlock Text="Panel rápido  ·  " FontSize="11" Foreground="{DynamicResource MutedBrush}" />
+                            <TextBlock Text="{Binding PasteDestinationHint}" FontSize="11" Foreground="{DynamicResource GreenBrush}" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                     <Button x:Name="PinButton" Content="&#xE840;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource GreenBrush}" Background="{DynamicResource GreenSoftBrush}" BorderThickness="0" Width="30" Height="30" ToolTip="Desfijar panel" Click="Pin_Click" />

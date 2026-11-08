@@ -86,17 +86,34 @@ public partial class MainWindow
         ShowPage(panel);
     }
 
-    private void OpenActions_Click(object sender, RoutedEventArgs e)
+    private async void OpenActions_Click(object sender, RoutedEventArgs e)
     {
+        var selectedIds = ClipList.SelectedItems.OfType<ClickBoard.Core.Models.ClipboardClip>().Select(clip => clip.Id).ToArray();
+        IReadOnlyList<string> projects = [];
+        try
+        {
+            projects = await _viewModel.GetProjectsAsync();
+        }
+        catch (Exception exception) when (exception is IOException or Microsoft.Data.Sqlite.SqliteException)
+        {
+        }
+
+        var peers = TransferService?.IsRunning == true ? TransferService.GetPeers() : [];
+
         var panel = new StackPanel { Margin = new Thickness(28), MaxWidth = 650 };
         panel.Children.Add(new TextBlock { Text = "Acciones", FontSize = 22, Margin = new Thickness(0, 0, 0, 12) });
-        var query = new TextBox { Style = (Style)FindResource("SearchBox"), ToolTip = "Buscar una acción" };
+        var query = new TextBox
+        {
+            Style = (Style)FindResource("SearchBox"),
+            ToolTip = "Busca una acción, un dispositivo de red o un proyecto"
+        };
         panel.Children.Add(query);
         var rows = new StackPanel { Margin = new Thickness(0, 12, 0, 0) };
         panel.Children.Add(rows);
 
-        var actions = new (string Title, Action Run)[]
+        var actions = new List<(string Title, Action Run)>
         {
+            (_viewModel.IsTemporaryMode ? "Salir de modo temporal" : "Activar modo temporal", () => { ClosePage(); ToggleTemporaryMode_Click(this, new()); }),
             ("Exportar selección", () => { ClosePage(); ExportBatch_Click(this, new()); }),
             ("Enviar selección a un dispositivo", () => { ClosePage(); SendBatch_Click(this, new()); }),
             ("Mover selección a un proyecto", () => { ClosePage(); OpenProjects_Click(this, new()); }),
@@ -106,14 +123,57 @@ public partial class MainWindow
             ("Papelera", () => OpenTrash_Click(this, new())),
             ("Reglas de pegado", () => OpenPasteRules_Click(this, new())),
             ("Atajos de favoritos", () => OpenFavoriteShortcuts_Click(this, new())),
-            ("Filtros avanzados", () => AdvancedFilters_Click(this, new())),
-            ("Volver al historial", ClosePage)
+            ("Filtros avanzados", () => AdvancedFilters_Click(this, new()))
         };
+
+        foreach (var peer in peers)
+        {
+            var capturedPeer = peer;
+            actions.Add(($"Enviar selección a {capturedPeer.Name} ({capturedPeer.Address})", () =>
+            {
+                ClosePage();
+                OpenSendBatch(capturedPeer, autoStart: true);
+            }));
+        }
+
+        if (_viewModel.ActiveProject is not null)
+        {
+            actions.Add(("Ver todos los proyectos", async () =>
+            {
+                await _viewModel.SelectProjectAsync(null);
+                ProjectChanged?.Invoke(null);
+                ClosePage();
+            }));
+        }
+
+        foreach (var project in projects)
+        {
+            var capturedProject = project;
+            actions.Add(($"Abrir proyecto: {capturedProject}", async () =>
+            {
+                await _viewModel.SelectProjectAsync(capturedProject);
+                ProjectChanged?.Invoke(capturedProject);
+                ClosePage();
+            }));
+            if (selectedIds.Length > 0)
+            {
+                actions.Add(($"Mover selección al proyecto: {capturedProject}", async () =>
+                {
+                    await _viewModel.MoveToProjectAsync(selectedIds, capturedProject);
+                    ClipTitleChanged?.Invoke(this, EventArgs.Empty);
+                    ClosePage();
+                }));
+            }
+        }
+
+        actions.Add(("Volver al historial", ClosePage));
 
         void Render()
         {
             rows.Children.Clear();
-            foreach (var action in actions.Where(action => action.Title.Contains(query.Text.Trim(), StringComparison.CurrentCultureIgnoreCase)))
+            var search = query.Text.Trim();
+            var terms = search.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var action in actions.Where(action => terms.All(term => action.Title.Contains(term, StringComparison.CurrentCultureIgnoreCase))))
             {
                 var button = new Button
                 {

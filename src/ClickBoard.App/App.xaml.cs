@@ -81,6 +81,9 @@ public partial class App : System.Windows.Application
             _mainViewModel = CreateViewModel();
             _quickViewModel = CreateViewModel(false);
             _dockedViewModel = CreateViewModel(false);
+            _mainViewModel.IsCapturePaused = _settings.CapturePaused;
+            _quickViewModel.IsCapturePaused = _settings.CapturePaused;
+            _dockedViewModel.IsCapturePaused = _settings.CapturePaused;
             _mainWindow = new MainWindow(_mainViewModel);
             _mainWindow.TrashRetentionDays = _settings.TrashRetentionDays;
             _mainWindow.SaveTrashRetention = days => SaveSettings(_settings with { TrashRetentionDays = days });
@@ -89,6 +92,7 @@ public partial class App : System.Windows.Application
             _mainWindow.DockedPanelRequested += (_, _) => ShowDockedPanel();
             _mainWindow.SettingsRequested += (_, _) => ShowSettings();
             _mainWindow.NetworkRequested += (_, _) => ShowNetwork();
+            _mainWindow.TemporaryModeToggleRequested += async (_, _) => await ToggleTemporaryModeAsync();
             _mainWindow.ProjectChanged += async project =>
             {
                 try
@@ -209,7 +213,8 @@ public partial class App : System.Windows.Application
             _quickWindow = new QuickPasteWindow(_quickViewModel!, _settings);
             _quickWindow.Closed += (_, _) => _quickWindow = null;
         }
-        _quickViewModel!.ResetSearchText();
+        _quickViewModel!.RefreshDestination();
+        _quickViewModel.ResetSearchText();
         _ = _quickViewModel.SetSectionAsync("Historial");
         _quickWindow.Show();
         _quickWindow.Activate();
@@ -223,7 +228,8 @@ public partial class App : System.Windows.Application
             _dockedWindow = new DockedQuickWindow(_dockedViewModel!, _settings);
             _dockedWindow.Closed += (_, _) => _dockedWindow = null;
         }
-        _dockedViewModel!.ResetSearchText();
+        _dockedViewModel!.RefreshDestination();
+        _dockedViewModel.ResetSearchText();
         _dockedWindow.ResetFilterSelection();
         _ = _dockedViewModel.SetKindFilterAsync(null);
         _dockedWindow.PlaceAtScreenEdge();
@@ -231,6 +237,29 @@ public partial class App : System.Windows.Application
         _dockedWindow.PlaceAtScreenEdge();
         _dockedWindow.Activate();
         _dockedWindow.FocusSearch();
+    }
+
+    private async Task ToggleTemporaryModeAsync()
+    {
+        if (_repository is null)
+            return;
+
+        var active = !_repository.TemporaryMode;
+        _repository.TemporaryMode = active;
+        if (_mainViewModel is not null)
+        {
+            _mainViewModel.IsTemporaryMode = active;
+            _mainViewModel.StatusMessage = active
+                ? "Modo temporal activado: las nuevas copias se conservan solo en memoria durante esta sesión."
+                : "Modo temporal desactivado: se descartaron las copias temporales.";
+        }
+        if (_quickViewModel is not null)
+            _quickViewModel.IsTemporaryMode = active;
+        if (_dockedViewModel is not null)
+            _dockedViewModel.IsTemporaryMode = active;
+        if (_trayIcon?.ContextMenuStrip?.Items.Count > 3)
+            _trayIcon.ContextMenuStrip.Items[3].Text = active ? "Salir de modo temporal" : "Modo temporal";
+        await RefreshOpenViewsAsync();
     }
 
     private void CreateTrayIcon()
@@ -244,6 +273,7 @@ public partial class App : System.Windows.Application
         menu.Items.Add("Abrir ClipForge", null, (_, _) => ShowMainWindow());
         menu.Items.Add($"Selector rápido  ·  {_settings.QuickPickerHotkey}", null, (_, _) => ShowQuickPicker());
         menu.Items.Add($"Panel lateral  ·  {_settings.DockedPanelHotkey}", null, (_, _) => ShowDockedPanel());
+        menu.Items.Add("Modo temporal", null, async (_, _) => await ToggleTemporaryModeAsync());
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         menu.Items.Add("Salir", null, (_, _) => ExitApplication());
 
@@ -444,6 +474,8 @@ public partial class App : System.Windows.Application
         _settings = settings;
         if (_mainWindow is not null) _mainWindow.TrashRetentionDays = settings.TrashRetentionDays;
         _mainWindow?.SetCapturePaused(settings.CapturePaused);
+        if (_quickViewModel is not null) _quickViewModel.IsCapturePaused = settings.CapturePaused;
+        if (_dockedViewModel is not null) _dockedViewModel.IsCapturePaused = settings.CapturePaused;
         if (settings.CapturePaused && !previous.CapturePaused)
         {
             _captureCancellation?.Cancel();

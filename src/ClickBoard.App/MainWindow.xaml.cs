@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     public event EventHandler? DockedPanelRequested;
     public event EventHandler? SettingsRequested;
     public event EventHandler? NetworkRequested;
+    public event EventHandler? TemporaryModeToggleRequested;
     public event EventHandler? ClipTitleChanged;
     public event EventHandler? ClipDeleted;
     internal int TrashRetentionDays { get; set; }
@@ -53,7 +54,10 @@ public partial class MainWindow : Window
         Activate();
     }
 
-    public void SetCapturePaused(bool paused) => CaptureStateText.Visibility = paused ? Visibility.Visible : Visibility.Collapsed;
+    public void SetCapturePaused(bool paused) => _viewModel.IsCapturePaused = paused;
+
+    internal void ToggleTemporaryMode_Click(object sender, RoutedEventArgs e) =>
+        TemporaryModeToggleRequested?.Invoke(this, EventArgs.Empty);
 
     public void CloseForExit()
     {

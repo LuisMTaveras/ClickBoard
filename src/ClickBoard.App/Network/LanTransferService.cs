@@ -28,9 +28,12 @@ public sealed record LanTransferUpdate(string Id, string DeviceName, string File
 {
     public DateTimeOffset UpdatedAt { get; init; } = DateTimeOffset.UtcNow;
     public double BytesPerSecond { get; init; }
+    public string? PeerFingerprint { get; init; }
+    public string? SourcePath { get; init; }
     public double Percent => Total == 0 ? (State == "Completado" ? 100 : 0) : Math.Clamp(100.0 * Completed / Total, 0, 100);
     public string Description => $"{(Receiving ? "Recibiendo de" : "Enviando a")} {DeviceName} · {State} · {Completed / 1048576.0:F1}/{Total / 1048576.0:F1} MB" + (State == "En curso" ? $" · {BytesPerSecond / 1048576.0:F1} MB/s" : string.Empty);
     public bool Active => State is "Conectando" or "Esperando aceptación" or "En curso";
+    public bool CanRetry => !Receiving && !Active && State != "Completado" && !string.IsNullOrEmpty(SourcePath) && !string.IsNullOrEmpty(PeerFingerprint);
 }
 public sealed class LanSettings
 {

@@ -15,7 +15,9 @@ public partial class MainWindow
 {
     internal LanTransferService? TransferService { get; set; }
     private bool _batchSending;
-    private void SendBatch_Click(object sender, RoutedEventArgs e)
+    private void SendBatch_Click(object sender, RoutedEventArgs e) => OpenSendBatch();
+
+    internal void OpenSendBatch(LanPeer? initialPeer = null, bool autoStart = false)
     {
         var service = TransferService;
         if (_batchSending) return;
@@ -26,8 +28,11 @@ public partial class MainWindow
         panel.Children.Add(new TextBlock { Text = "Enviar selección", FontSize = 22 });
         panel.Children.Add(new TextBlock { Text = $"{selected.Length} clips. Los textos se envían como TXT y las imágenes como PNG. Cada archivo puede requerir aceptación del receptor.", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,10,0,10) });
         var peers = CreateThemedListBox(height: 200);
-        peers.ItemsSource = service.GetPeers();
+        var availablePeers = service.GetPeers();
+        peers.ItemsSource = availablePeers;
         peers.DisplayMemberPath = "Name";
+        if (initialPeer is not null)
+            peers.SelectedItem = availablePeers.FirstOrDefault(p => p.Fingerprint == initialPeer.Fingerprint) ?? initialPeer;
         panel.Children.Add(peers);
         var status = new TextBlock { Text = "Elige un dispositivo disponible.", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,10,0,10) }; panel.Children.Add(status);
         var send = new Button { Content = "Enviar lote", Style = (Style)FindResource("PrimaryButton"), Margin = new Thickness(0,6,0,6) };
@@ -79,11 +84,13 @@ public partial class MainWindow
             }
             catch (OperationCanceledException) { status.Text = $"Lote cancelado: {completed} archivos confirmados. Los ya recibidos se conservan."; }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException or Microsoft.Data.Sqlite.SqliteException or System.Net.Sockets.SocketException or System.Security.Authentication.AuthenticationException)
-            { status.Text = $"Lote detenido: {completed} archivos confirmados. Comprueba el receptor; repetir el lote puede duplicar archivos ya recibidos."; }
+            { status.Text = $"Lote detenido: {completed} archivos confirmados. Puedes reintentar para reanudar pendientes sin duplicar los ya confirmados."; }
             finally
             { cancellation.Dispose(); cancellation = null; _batchSending = false; send.IsEnabled = back.IsEnabled = refresh.IsEnabled = peers.IsEnabled = true; cancel.IsEnabled = false; }
         };
         panel.Children.Add(send); panel.Children.Add(refresh); panel.Children.Add(cancel); panel.Children.Add(back);
         ShowPage(new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+        if (autoStart && peers.SelectedItem is LanPeer)
+            send.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
     }
 }

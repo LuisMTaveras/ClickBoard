@@ -21,6 +21,7 @@ public partial class QuickPasteWindow : Window
         _settings = settings;
         DataContext = viewModel;
         UpdateSettings(settings);
+        Activated += (_, _) => _viewModel.RefreshDestination();
         Deactivated += (_, _) => { if (_settings.CloseQuickOnFocusLoss) Hide(); };
         Loaded += (_, _) => FocusSearch();
     }
