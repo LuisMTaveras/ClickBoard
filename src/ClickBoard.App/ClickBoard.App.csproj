@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <Resource Include="Assets\ClipForge.ico" />
+    <ProjectReference Include="..\ClickBoard.Core\ClickBoard.Core.csproj" />
+    <ProjectReference Include="..\ClickBoard.Infrastructure\ClickBoard.Infrastructure.csproj" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+  </ItemGroup>
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>ClipForge</AssemblyName>
+    <RootNamespace>ClickBoard.App</RootNamespace>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>Assets\ClipForge.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>0.2.0</Version>
+    <Product>ClipForge</Product>
+    <AssemblyTitle>ClipForge</AssemblyTitle>
+  </PropertyGroup>
+</Project>

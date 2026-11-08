@@ -1,0 +1,111 @@
+<UserControl x:Class="ClickBoard.App.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{DynamicResource CanvasBrush}" Foreground="{DynamicResource TextBrush}"
+             FontFamily="Segoe UI" PreviewKeyDown="View_PreviewKeyDown">
+    <UserControl.Resources>
+        <Style x:Key="SettingsCheck" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="SettingsRadio" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="SettingsCard" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Padding" Value="18,15" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="230" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+        <Border Grid.Column="0" Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0">
+            <DockPanel Margin="15,20,15,18" LastChildFill="False">
+                <Button DockPanel.Dock="Bottom" Style="{StaticResource NavButton}" Click="Back_Click" ToolTip="Volver al historial">
+                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="14" Width="27" /><TextBlock Text="Volver al historial" /></StackPanel>
+                </Button>
+                <StackPanel DockPanel.Dock="Top">
+                    <TextBlock Text="CONFIGURACIÓN" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}" Margin="13,0,0,12" />
+                    <Button x:Name="GeneralNav" Tag="General" Style="{StaticResource NavButton}" Click="Navigation_Click"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="15" Width="27" /><TextBlock Text="General" /></StackPanel></Button>
+                    <Button x:Name="ShortcutsNav" Tag="Atajos" Style="{StaticResource NavButton}" Click="Navigation_Click"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE765;" FontFamily="Segoe MDL2 Assets" FontSize="15" Width="27" /><TextBlock Text="Atajos globales" /></StackPanel></Button>
+                    <Button x:Name="PasteNav" Tag="Pegado" Style="{StaticResource NavButton}" Click="Navigation_Click"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="15" Width="27" /><TextBlock Text="Pegado rápido" /></StackPanel></Button>
+                    <Button x:Name="PrivacyNav" Tag="Privacidad" Style="{StaticResource NavButton}" Click="Navigation_Click"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="15" Width="27"/><TextBlock Text="Privacidad"/></StackPanel></Button>
+                    <Button x:Name="FilesNav" Tag="Archivos" Style="{StaticResource NavButton}" Click="Navigation_Click"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="15" Width="27" /><TextBlock Text="Archivos" /></StackPanel></Button>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <Grid Grid.Column="1" Margin="36,24,36,20">
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+            <Grid MaxWidth="700" HorizontalAlignment="Stretch" Margin="0,0,0,20">
+                <TextBox x:Name="SettingsSearch" Style="{StaticResource SearchBox}" Padding="42,5,14,5" TextChanged="SettingsSearch_TextChanged" ToolTip="Buscar en configuración" />
+                <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="15,0,0,0" IsHitTestVisible="False" />
+                <TextBlock Text="Buscar en configuración" FontSize="15" Margin="42,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" IsHitTestVisible="False">
+                    <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=SettingsSearch}" Value=""><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                </TextBlock>
+            </Grid>
+
+            <ScrollViewer x:Name="ContentScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel MaxWidth="850" HorizontalAlignment="Stretch">
+                    <TextBlock Text="ClipForge  /  Configuración" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,8" />
+                    <TextBlock x:Name="PageTitle" Text="General" FontSize="28" FontWeight="SemiBold" />
+                    <TextBlock x:Name="PageDescription" Text="Personaliza la apariencia de ClipForge." FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,24" />
+
+                    <StackPanel x:Name="GeneralSection" Tag="general apariencia tema oscuro claro windows color visual">
+                        <TextBlock x:Name="VersionText" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,12"/>
+                        <TextBlock Text="Apariencia" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10" />
+                        <Border Style="{StaticResource SettingsCard}">
+                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,20,0"><TextBlock Text="Tema de la aplicación" FontSize="14" FontWeight="SemiBold" /><TextBlock Text="Se aplica a la ventana principal y a los dos modos rápidos." FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" /></StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><RadioButton x:Name="DarkThemeOption" Content="Oscuro" GroupName="Theme" Tag="Dark" Style="{StaticResource SettingsRadio}" Margin="0,0,14,0" /><RadioButton x:Name="LightThemeOption" Content="Claro" GroupName="Theme" Tag="Light" Style="{StaticResource SettingsRadio}" Margin="0,0,14,0" /><RadioButton x:Name="SystemThemeOption" Content="Windows" GroupName="Theme" Tag="System" Style="{StaticResource SettingsRadio}" /></StackPanel>
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource SettingsCard}"><StackPanel><TextBlock Text="Tus datos permanecen en este equipo" FontSize="14" FontWeight="SemiBold" /><TextBlock Text="El historial, las copias de archivos y las preferencias se guardan localmente." FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" /></StackPanel></Border>
+                    </StackPanel>
+
+                    <StackPanel x:Name="ShortcutsSection" Tag="atajos globales teclado selector rápido panel lateral teclas shortcut ctrl alt shift">
+                        <TextBlock Text="Abrir modos rápidos" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10" />
+                        <TextBlock Text="Selecciona un atajo y pulsa la combinación que quieres usar. Debe incluir Ctrl, Alt o Shift." FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                        <Border Style="{StaticResource SettingsCard}"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><StackPanel Margin="0,0,15,0"><TextBlock Text="Selector rápido" FontSize="14" FontWeight="SemiBold" /><TextBlock Text="Abre la búsqueda centrada." FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0" /></StackPanel><Button x:Name="QuickPickerHotkeyButton" Grid.Column="1" Style="{StaticResource SecondaryButton}" MinWidth="180" Click="CaptureQuickPickerHotkey_Click" /></Grid></Border>
+                        <Border Style="{StaticResource SettingsCard}"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><StackPanel Margin="0,0,15,0"><TextBlock Text="Panel lateral" FontSize="14" FontWeight="SemiBold" /><TextBlock Text="Abre el historial junto al borde de la pantalla." FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" /></StackPanel><Button x:Name="DockedPanelHotkeyButton" Grid.Column="1" Style="{StaticResource SecondaryButton}" MinWidth="180" Click="CaptureDockedPanelHotkey_Click" /></Grid></Border>
+                        <TextBlock x:Name="HotkeyStatusText" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="2,8,0,0" />
+                    </StackPanel>
+
+                    <StackPanel x:Name="PasteSection" Tag="pegado rápido acciones enter texto plano formato original alterna shift favorito ctrl f">
+                        <TextBlock Text="Acciones del selector y el panel" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10" />
+                        <Border Style="{StaticResource SettingsCard}"><StackPanel><TextBlock Text="Acción principal de Enter" FontSize="14" FontWeight="SemiBold" /><TextBlock Text="Elige cómo se pega el clip seleccionado." FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,12" /><StackPanel Orientation="Horizontal"><RadioButton x:Name="QuickEnterPreserveOption" Content="Formato original" GroupName="QuickEnterAction" Style="{StaticResource SettingsRadio}" Margin="0,0,24,0" /><RadioButton x:Name="QuickEnterPlainOption" Content="Texto sin formato" GroupName="QuickEnterAction" Style="{StaticResource SettingsRadio}" /></StackPanel></StackPanel></Border>
+                        <Border Style="{StaticResource SettingsCard}"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><StackPanel Margin="0,0,16,0"><TextBlock Text="Acción alternativa con Shift + Enter" FontSize="14" FontWeight="SemiBold" /><TextBlock Text="Alterna entre pegar con formato y pegar texto plano." FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" /></StackPanel><CheckBox x:Name="EnableAlternatePasteCheck" Grid.Column="1" Style="{StaticResource SettingsCheck}" Content="Activada" /></Grid></Border>
+                        <Border Style="{StaticResource SettingsCard}"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><StackPanel Margin="0,0,16,0"><TextBlock Text="Favoritos con Ctrl + F" FontSize="14" FontWeight="SemiBold" /><TextBlock Text="Marca o quita el favorito del clip seleccionado." FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" /></StackPanel><CheckBox x:Name="EnableFavoriteQuickActionCheck" Grid.Column="1" Style="{StaticResource SettingsCheck}" Content="Activada" /></Grid></Border>
+                    </StackPanel>
+
+                    <StackPanel x:Name="PrivacySection" Tag="privacidad pausa captura excluir aplicaciones cerrar foco">
+                        <TextBlock Text="Captura y privacidad" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                        <Border Style="{StaticResource SettingsCard}"><StackPanel><CheckBox x:Name="CapturePausedCheck" Content="Pausar la captura del portapapeles" Style="{StaticResource SettingsCheck}"/><TextBlock Text="Mientras esté pausada, podrás consultar y pegar lo guardado, pero no se añadirán nuevas copias." FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel></Border>
+                        <Border Style="{StaticResource SettingsCard}"><StackPanel><TextBlock Text="Aplicaciones excluidas" FontSize="14" FontWeight="SemiBold"/><TextBlock Text="Nombres de procesos separados por punto y coma, por ejemplo: KeePass; 1Password. La identificación depende del propietario que Windows indique." FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,8"/><TextBox x:Name="ExcludedAppsBox" Style="{StaticResource SearchBox}" MaxLength="1000"/></StackPanel></Border>
+                        <Border Style="{StaticResource SettingsCard}"><CheckBox x:Name="CloseQuickOnFocusLossCheck" Content="Cerrar los modos rápidos al cambiar a otra ventana" Style="{StaticResource SettingsCheck}"/></Border>
+                    </StackPanel>
+                    <StackPanel x:Name="FilesSection" Tag="archivos tamaño límite peso megabytes mb pdf carpetas copia almacenamiento historial">
+                        <Border Style="{StaticResource SettingsCard}"><StackPanel><TextBlock Text="Limpieza guiada" FontSize="14" FontWeight="SemiBold"/><TextBlock Text="Revisa hasta 1000 clips de más de 30 días, sin título, colección ni etiquetas y que no sean favoritos. Pide confirmación y respeta los archivos del portapapeles activo." FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,10"/><Button Content="Revisar limpieza…" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Click="ReviewCleanup_Click"/></StackPanel></Border>
+                        <TextBlock Text="Archivos del portapapeles" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10" />
+                        <Border Style="{StaticResource SettingsCard}"><StackPanel><TextBlock Text="Presupuesto total de almacenamiento" FontSize="14" FontWeight="SemiBold"/><TextBlock Text="Incluye historial y archivos recibidos. Al alcanzarlo se rechazan nuevas copias; no se borra contenido automáticamente." FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,10"/><StackPanel Orientation="Horizontal"><RadioButton x:Name="StorageSmallOption" Content="512 MB" GroupName="Storage" Tag="512" Style="{StaticResource SettingsRadio}" Margin="0,0,20,0"/><RadioButton x:Name="StorageStandardOption" Content="2 GB" GroupName="Storage" Tag="2048" Style="{StaticResource SettingsRadio}" Margin="0,0,20,0"/><RadioButton x:Name="StorageLargeOption" Content="5 GB" GroupName="Storage" Tag="5120" Style="{StaticResource SettingsRadio}"/></StackPanel></StackPanel></Border>
+                        <Border Style="{StaticResource SettingsCard}"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><StackPanel Margin="0,0,16,0"><TextBlock Text="Tamaño máximo por archivo" FontSize="14" FontWeight="SemiBold" /><TextBlock Text="Entre 1 y 10240 MB. Si un archivo supera el límite, la selección completa no se guarda en el historial." FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" /></StackPanel><StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><TextBox x:Name="MaxFileSizeBox" Style="{StaticResource SearchBox}" Width="90" MaxLength="5" ToolTip="Entre 1 y 10240 MB" /><TextBlock Text="MB" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="13" /></StackPanel></Grid></Border>
+                        <Border Style="{StaticResource SettingsCard}"><StackPanel><TextBlock Text="Copias locales" FontSize="14" FontWeight="SemiBold" /><TextBlock Text="ClipForge guarda una copia de cada archivo aceptado en este equipo. Las carpetas deben copiarse como archivos individuales." FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" /></StackPanel></Border>
+                    </StackPanel>
+                    <TextBlock x:Name="NoResultsText" Text="No encontramos opciones con ese nombre. Prueba otra búsqueda." FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Visibility="Collapsed" Margin="0,8,0,0" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <StackPanel Grid.Row="2" MaxWidth="850" HorizontalAlignment="Stretch" Margin="0,18,0,0">
+                <TextBlock x:Name="SaveFeedback" Text="Los cambios se aplican automáticamente." FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                <TextBlock x:Name="ValidationText" FontSize="11" Foreground="#D45B5B" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>
+

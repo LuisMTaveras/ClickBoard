@@ -1,0 +1,51 @@
+<UserControl x:Class="ClickBoard.App.NetworkView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="{DynamicResource CanvasBrush}" Foreground="{DynamicResource TextBrush}" FontFamily="Segoe UI">
+  <Grid>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="230"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Border Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0">
+      <DockPanel Margin="15,20,15,18" LastChildFill="False">
+        <Button DockPanel.Dock="Bottom" Content="←  Volver al historial" Style="{StaticResource NavButton}" Click="Back_Click" />
+        <StackPanel DockPanel.Dock="Top"><TextBlock Text="CLIPFORGE" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MutedBrush}" Margin="13,0,0,12"/><Border Background="{DynamicResource AccentSoftBrush}" CornerRadius="9" Padding="13,11"><TextBlock Text="Red y contactos" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/></Border></StackPanel>
+      </DockPanel>
+    </Border>
+    <Grid Grid.Column="1" Margin="36,24,36,20">
+      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <StackPanel Margin="0,0,0,18"><TextBlock Text="ClipForge  /  Red" FontSize="12" Foreground="{DynamicResource MutedBrush}"/><TextBlock Text="Red y contactos" FontSize="28" FontWeight="SemiBold" Margin="0,8,0,0"/><TextBlock Text="Encuentra dispositivos de tu red local y comparte archivos." FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,5,0,0"/></StackPanel>
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel MaxWidth="950" HorizontalAlignment="Stretch">
+          <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="10" Padding="18" Margin="0,0,0,12">
+            <StackPanel>
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="Modo red local" FontSize="15" FontWeight="SemiBold"/><TextBlock x:Name="NetworkStatusText" Text="Red desactivada." FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/></StackPanel><Button x:Name="ToggleNetworkButton" Grid.Column="1" Content="Activar red" Style="{StaticResource PrimaryButton}" Click="ToggleNetwork_Click" Margin="15,0,0,0"/></Grid>
+              <StackPanel Margin="0,16,0,0"><TextBlock Text="Nombre de este dispositivo" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6"/><TextBox x:Name="DeviceNameBox" Style="{StaticResource SearchBox}" Width="360" MaxWidth="360" HorizontalAlignment="Left" MaxLength="80" ToolTip="Nombre visible en tu red"/><TextBlock Text="Se actualiza automáticamente al escribir." FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,5,0,0"/></StackPanel>
+              <TextBlock Text="Tu código de identidad" FontSize="12" FontWeight="SemiBold" Margin="0,14,0,4"/><TextBlock x:Name="IdentityText" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"/><TextBlock Text="Compara el código completo en ambos equipos antes de agregar un contacto. Cada equipo debe agregar al otro para recibir automáticamente." FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+            </StackPanel>
+          </Border>
+          <Grid Margin="0,6,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="Dispositivos y contactos" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="Los contactos guardados aparecen incluso si están desconectados." FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0"/></StackPanel><Button Grid.Column="1" Content="Abrir recibidos" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Click="OpenReceived_Click"/></Grid>
+          <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="10" Padding="8" MinHeight="110">
+            <Grid><ListBox x:Name="PeersList" Background="Transparent" BorderThickness="0" MaxHeight="280" ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="PeersList_SelectionChanged" ItemContainerStyle="{StaticResource ClipListBoxItem}">
+              <ListBox.ItemTemplate><DataTemplate><Grid Margin="10,9"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{Binding DisplayName}" FontSize="14" FontWeight="SemiBold"/><TextBlock Text="{Binding Description}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0"/></StackPanel><TextBlock Grid.Column="1" Text="{Binding Badge}" FontSize="11" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/></Grid></DataTemplate></ListBox.ItemTemplate>
+            </ListBox><TextBlock x:Name="EmptyPeersText" Text="Activa la red en ambos equipos para descubrir dispositivos." FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/></Grid>
+          </Border>
+          <TextBlock Text="Nombre del contacto seleccionado" FontSize="12" FontWeight="SemiBold" Margin="2,14,0,0" />
+          <Grid Margin="0,6,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBox x:Name="AliasBox" Style="{StaticResource SearchBox}" MaxWidth="320" HorizontalAlignment="Stretch" MaxLength="80" ToolTip="Nombre del contacto" IsEnabled="False" />
+            <Button x:Name="AddContactButton" Grid.Column="1" Content="Agregar contacto" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="AddContact_Click" IsEnabled="False"/>
+            <Button x:Name="RemoveContactButton" Grid.Column="2" Content="Quitar contacto" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="RemoveContact_Click" IsEnabled="False"/>
+            <Button x:Name="SendFileButton" Grid.Column="3" Content="Enviar archivo…" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Click="SendFile_Click" IsEnabled="False"/>
+          </Grid>
+          <CheckBox x:Name="ContactAutoReceiveCheck" Content="Aceptar automáticamente los archivos de este contacto" Foreground="{DynamicResource TextBrush}" FontSize="12" Margin="2,12,0,0" IsEnabled="False"/>
+          <TextBlock Text="Transferencias de esta sesión" FontSize="17" FontWeight="SemiBold" Margin="0,22,0,10"/>
+          <ListBox x:Name="TransfersList" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" MaxHeight="300" ScrollViewer.HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch">
+            <ListBox.ItemTemplate><DataTemplate><Grid Margin="10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{Binding FileName}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding Description}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,6"/><ProgressBar Minimum="0" Maximum="100" Value="{Binding Percent}" Height="5"/></StackPanel><Button Grid.Column="1" Content="Cancelar" Tag="{Binding Id}" IsEnabled="{Binding Active}" Style="{StaticResource SecondaryButton}" Click="CancelTransfer_Click" Margin="14,0,0,0" VerticalAlignment="Center"/></Grid></DataTemplate></ListBox.ItemTemplate>
+          </ListBox>
+          <TextBlock Text="Bandeja de recibidos" FontSize="17" FontWeight="SemiBold" Margin="0,22,0,10"/>
+          <ListBox x:Name="InboxList" DisplayMemberPath="Description" MaxHeight="240" Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource LineBrush}"/>
+          <WrapPanel Margin="0,10,0,0"><Button Content="Actualizar bandeja" Click="RefreshInbox_Click" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/><Button Content="Abrir carpeta" Click="OpenInboxFolder_Click" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/><Button x:Name="ResendInboxButton" Content="Reenviar al dispositivo seleccionado" Click="ResendInbox_Click" Style="{StaticResource SecondaryButton}"/></WrapPanel>
+          <TextBlock Text="Se muestran hasta 1000 recibidos recientes. El reenvío requiere que el archivo siga disponible. Cada contacto puede tener recepción automática o confirmación manual; se configura arriba." FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="2,9,0,0"/>
+        </StackPanel>
+      </ScrollViewer>
+      <TextBlock x:Name="ActionStatusText" Grid.Row="2" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,15,0,0"/>
+    </Grid>
+  </Grid>
+</UserControl>
+
+
