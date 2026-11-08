@@ -309,4 +309,9 @@ public sealed class SqliteClipboardRepository : IClipboardRepository
     }
     private static string? BuildFtsQuery(string query)
     {
-     
+        var terms=Regex.Matches(query,"[\\p{L}\\p{N}_]+").Select(m=>m.Value).Take(12).Select(s=>$"\"{s}\"*").ToArray();
+        return terms.Length==0?null:string.Join(" AND ",terms);
+    }
+    private static string BuildLikePattern(string text)=>"%"+text.Replace("\\","\\\\").Replace("%","\\%").Replace("_","\\_")+"%";
+}
+

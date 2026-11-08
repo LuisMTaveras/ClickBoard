@@ -227,4 +227,62 @@ public sealed class ClipboardCaptureService(
     private static string? ReadString(IDataObject data, string format)
     {
         if (!data.GetDataPresent(format))
-            retu
+            return null;
+        var value = data.GetData(format, true);
+        return value switch
+        {
+            string stringValue when !string.IsNullOrEmpty(stringValue) => stringValue,
+            MemoryStream stream => Encoding.UTF8.GetString(stream.ToArray()),
+            byte[] bytes => Encoding.UTF8.GetString(bytes),
+            _ => null
+        };
+    }
+
+    private static bool HistoryOptOut(IDataObject data)
+    {
+        const string format = "CanIncludeInClipboardHistory";
+        if (!data.GetDataPresent(format, false)) return false;
+        var value = data.GetData(format, false);
+        var bytes = value switch { MemoryStream stream => stream.ToArray(), byte[] array => array, _ => null };
+        return value is false || value is int number && number == 0 || bytes is { Length: >= 4 } && BitConverter.ToInt32(bytes, 0) == 0;
+    }
+
+    private static byte[]? EncodeImage(BitmapSource? image)
+    {
+        if (image is null)
+            return null;
+
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(image));
+        using var stream = new MemoryStream();
+        encoder.Save(stream);
+        return stream.ToArray();
+    }
+
+    private static string NormalizePreview(string text)
+    {
+        var normalized = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return normalized.Length > 300 ? string.Concat(normalized.AsSpan(0, 297), "…") : normalized;
+    }
+
+    private static string ComputeHash(ClipboardClip clip)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Append(clip.TextContent);
+        Append(clip.HtmlContent);
+        Append(clip.RtfContent);
+        Append(clip.FilesJson);
+        if (clip.ImageBytes is not null)
+            hash.AppendData(clip.ImageBytes);
+        return Convert.ToHexString(hash.GetHashAndReset());
+
+        void Append(string? value)
+        {
+            if (!string.IsNullOrEmpty(value))
+                hash.AppendData(Encoding.UTF8.GetBytes(value));
+            hash.AppendData([0]);
+        }
+    }
+}
+
+public sealed class ClipboardCaptureException(string message) : Exception(message);
