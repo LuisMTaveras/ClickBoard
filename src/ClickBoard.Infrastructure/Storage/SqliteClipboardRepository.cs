@@ -11,6 +11,28 @@ namespace ClickBoard.Infrastructure.Storage;
 public sealed class SqliteClipboardRepository : IClipboardRepository
 {
     private readonly string _connectionString;
+    private readonly object _temporaryLock = new();
+    private readonly List<ClipboardClip> _temporaryClips = [];
+    private long _nextTemporaryId = -1;
+    private bool _temporaryMode;
+
+    public bool TemporaryMode
+    {
+        get => _temporaryMode;
+        set
+        {
+            _temporaryMode = value;
+            if (!value)
+                ClearTemporaryClips();
+        }
+    }
+
+    public void ClearTemporaryClips()
+    {
+        lock (_temporaryLock)
+            _temporaryClips.Clear();
+    }
+
     public SqliteClipboardRepository()
     {
         var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ClickBoard");
@@ -59,6 +81,35 @@ public sealed class SqliteClipboardRepository : IClipboardRepository
     // True means the caller's payload is retained. False means an existing intact copy was reused.
     public Task<bool> SaveAsync(ClipboardClip clip, CancellationToken cancellationToken = default) => Task.Run(() =>
     {
+        if (_temporaryMode)
+        {
+            lock (_temporaryLock)
+            {
+                var existingIndex = _temporaryClips.FindIndex(item => item.ContentHash == clip.ContentHash);
+                if (existingIndex >= 0)
+                {
+                    var existing = _temporaryClips[existingIndex];
+                    _temporaryClips.RemoveAt(existingIndex);
+                    _temporaryClips.Insert(0, existing with
+                    {
+                        CreatedAtUtc = clip.CreatedAtUtc,
+                        SourceApp = clip.SourceApp
+                    });
+                    return false;
+                }
+                var temporaryId = _nextTemporaryId--;
+                _temporaryClips.Insert(0, clip with
+                {
+                    Id = temporaryId,
+                    Category = clip.ContentCategory,
+                    IsPayloadLoaded = true
+                });
+                if (_temporaryClips.Count > 200)
+                    _temporaryClips.RemoveRange(200, _temporaryClips.Count - 200);
+                return true;
+            }
+        }
+
         using var connection = OpenConnection();
         using var transaction = connection.BeginTransaction(deferred: false);
         using var command = connection.CreateCommand();
@@ -124,6 +175,14 @@ public sealed class SqliteClipboardRepository : IClipboardRepository
 
     public Task<ClipboardClip?> GetByIdAsync(long clipId, CancellationToken cancellationToken = default) => Task.Run(() =>
     {
+        if (clipId < 0)
+        {
+            ClipboardClip? tempClip;
+            lock (_temporaryLock)
+                tempClip = _temporaryClips.FirstOrDefault(item => item.Id == clipId);
+            return tempClip is null ? null : EnrichFileClipIfNeeded(tempClip, null);
+        }
+
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = $"SELECT {Projection(true)} FROM clips c WHERE c.id=$id AND c.deleted_utc IS NULL";
@@ -141,8 +200,58 @@ public sealed class SqliteClipboardRepository : IClipboardRepository
                 clip = clip with { ThumbnailBytes = thumbnail };
             }
         }
+        else if (clip is { Kind: ClipKind.Files })
+        {
+            clip = EnrichFileClipIfNeeded(clip, connection);
+        }
         return clip;
     }, cancellationToken);
+
+    private static ClipboardClip EnrichFileClipIfNeeded(ClipboardClip clip, SqliteConnection? connection)
+    {
+        if (string.IsNullOrEmpty(clip.FilesJson))
+            return clip;
+
+        string[]? files;
+        try
+        {
+            files = JsonSerializer.Deserialize<string[]>(clip.FilesJson);
+        }
+        catch (JsonException)
+        {
+            return clip;
+        }
+        if (files is not { Length: > 0 })
+            return clip;
+
+        var summary = string.IsNullOrWhiteSpace(clip.TextContent)
+            ? FilePreviewHelper.BuildFilesSummary(files)
+            : clip.TextContent;
+        var previewImage = clip.ImageBytes;
+        var thumbnail = clip.ThumbnailBytes;
+        if (previewImage is null && files.Length == 1)
+        {
+            previewImage = FilePreviewHelper.TryExtractPreviewImage(files[0]);
+            if (previewImage is not null && thumbnail is null)
+            {
+                thumbnail = ImageThumbnail.Create(previewImage);
+                if (thumbnail is not null && connection is not null && clip.Id > 0)
+                {
+                    using var updateCmd = connection.CreateCommand();
+                    updateCmd.CommandText = "UPDATE clips SET thumbnail_bytes=$thumbnail WHERE id=$id";
+                    updateCmd.Parameters.AddWithValue("$id", clip.Id);
+                    updateCmd.Parameters.AddWithValue("$thumbnail", thumbnail);
+                    updateCmd.ExecuteNonQuery();
+                }
+            }
+        }
+        return clip with
+        {
+            TextContent = summary,
+            ImageBytes = previewImage,
+            ThumbnailBytes = thumbnail
+        };
+    }
 
     public Task<IReadOnlyList<ClipboardClip>> SearchAsync(string query, ClipKind? kind, bool favoritesOnly, int limit = 100,
         CancellationToken cancellationToken = default, bool developerOnly = false, int offset = 0, string? project = null) => Task.Run<IReadOnlyList<ClipboardClip>>(() =>
@@ -245,9 +354,79 @@ public sealed class SqliteClipboardRepository : IClipboardRepository
         command.Parameters.AddWithValue("$offset", Math.Max(offset, 0));
         using var reader = command.ExecuteReader();
         var results = new List<ClipboardClip>();
-        while (reader.Read())
+        if (offset == 0)
+        {
+            List<ClipboardClip> tempSnapshot;
+            lock (_temporaryLock)
+                tempSnapshot = [.. _temporaryClips];
+            foreach (var temp in tempSnapshot)
+            {
+                if (MatchesSearch(temp, parsed, kind, favoritesOnly, developerOnly, project))
+                    results.Add(temp);
+            }
+        }
+        while (reader.Read() && results.Count < Math.Clamp(limit, 1, 50001))
             results.Add(ReadClip(reader, false));
+        results.Sort((a, b) =>
+        {
+            var fav = b.IsFavorite.CompareTo(a.IsFavorite);
+            if (fav != 0) return fav;
+            return b.CreatedAtUtc.CompareTo(a.CreatedAtUtc);
+        });
         return results;
+    }
+
+    private static bool MatchesSearch(ClipboardClip clip, ClipSearchQuery parsed, ClipKind? kind, bool favoritesOnly, bool developerOnly, string? project)
+    {
+        if (kind is not null && clip.Kind != kind) return false;
+        if (favoritesOnly && !clip.IsFavorite) return false;
+        if (developerOnly && !clip.IsDeveloperContent) return false;
+        if (project is not null && !string.Equals(clip.Collection, project, StringComparison.OrdinalIgnoreCase)) return false;
+
+        foreach (var (field, value) in parsed.Filters)
+        {
+            switch (field)
+            {
+                case "app":
+                    if (clip.SourceApp is null || !clip.SourceApp.Contains(value, StringComparison.OrdinalIgnoreCase)) return false;
+                    break;
+                case "etiqueta":
+                    if (clip.Tags is null || !clip.Tags.Contains(value, StringComparison.OrdinalIgnoreCase)) return false;
+                    break;
+                case "proyecto":
+                    if (!string.Equals(clip.Collection, value, StringComparison.OrdinalIgnoreCase)) return false;
+                    break;
+                case "antes":
+                    if (DateOnly.TryParseExact(value, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var beforeDate))
+                    {
+                        var cutoff = new DateTimeOffset(beforeDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc));
+                        if (clip.CreatedAtUtc >= cutoff) return false;
+                    }
+                    break;
+                default:
+                    var v = value.ToLowerInvariant();
+                    if (v == "texto" && clip.Kind != ClipKind.Text) return false;
+                    if (v == "imagen" && clip.Kind != ClipKind.Image) return false;
+                    if (v == "archivo" && clip.Kind != ClipKind.Files) return false;
+                    if (v is not ("texto" or "imagen" or "archivo") && (clip.FilesJson is null || !clip.FilesJson.Contains("." + v.TrimStart('.'), StringComparison.OrdinalIgnoreCase))) return false;
+                    break;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(parsed.Text))
+        {
+            var terms = parsed.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var term in terms)
+            {
+                var matched = clip.PreviewText.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || (clip.TextContent?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (clip.Title?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (clip.Collection?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (clip.Tags?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false);
+                if (!matched) return false;
+            }
+        }
+        return true;
     }
 
     private static string Projection(bool full) =>
@@ -275,14 +454,53 @@ public sealed class SqliteClipboardRepository : IClipboardRepository
         IsPayloadLoaded = full
     };
 
-    public Task SetFavoriteAsync(long id, bool favorite, CancellationToken cancellationToken = default) =>
-        UpdateAsync("UPDATE clips SET is_favorite=$value WHERE id=$id", id, favorite ? 1 : 0, cancellationToken);
+    public Task SetFavoriteAsync(long id, bool favorite, CancellationToken cancellationToken = default)
+    {
+        if (id < 0)
+        {
+            lock (_temporaryLock)
+            {
+                var idx = _temporaryClips.FindIndex(c => c.Id == id);
+                if (idx >= 0) _temporaryClips[idx] = _temporaryClips[idx] with { IsFavorite = favorite };
+            }
+            return Task.CompletedTask;
+        }
+        return UpdateAsync("UPDATE clips SET is_favorite=$value WHERE id=$id", id, favorite ? 1 : 0, cancellationToken);
+    }
 
-    public Task SetTitleAsync(long id, string? title, CancellationToken cancellationToken = default) =>
-        UpdateAsync("UPDATE clips SET title=$value WHERE id=$id", id, Normalize(title), cancellationToken);
+    public Task SetTitleAsync(long id, string? title, CancellationToken cancellationToken = default)
+    {
+        if (id < 0)
+        {
+            lock (_temporaryLock)
+            {
+                var idx = _temporaryClips.FindIndex(c => c.Id == id);
+                if (idx >= 0) _temporaryClips[idx] = _temporaryClips[idx] with { Title = string.IsNullOrWhiteSpace(title) ? null : title.Trim() };
+            }
+            return Task.CompletedTask;
+        }
+        return UpdateAsync("UPDATE clips SET title=$value WHERE id=$id", id, Normalize(title), cancellationToken);
+    }
 
     public Task SetMetadataAsync(long clipId, string? title, string? collection, string? tags, CancellationToken cancellationToken = default) => Task.Run(() =>
     {
+        if (clipId < 0)
+        {
+            lock (_temporaryLock)
+            {
+                var idx = _temporaryClips.FindIndex(c => c.Id == clipId);
+                if (idx >= 0)
+                {
+                    _temporaryClips[idx] = _temporaryClips[idx] with
+                    {
+                        Title = string.IsNullOrWhiteSpace(title) ? null : title.Trim(),
+                        Collection = string.IsNullOrWhiteSpace(collection) ? null : collection.Trim(),
+                        Tags = string.IsNullOrWhiteSpace(tags) ? null : tags.Trim()
+                    };
+                }
+            }
+            return;
+        }
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = "UPDATE clips SET title=$title,collection=$collection,tags=$tags WHERE id=$id";
@@ -295,6 +513,11 @@ public sealed class SqliteClipboardRepository : IClipboardRepository
 
     public Task<bool> DeleteAsync(long clipId, CancellationToken cancellationToken = default) => Task.Run(() =>
     {
+        if (clipId < 0)
+        {
+            lock (_temporaryLock)
+                return _temporaryClips.RemoveAll(c => c.Id == clipId) > 0;
+        }
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = "UPDATE clips SET deleted_utc=$deleted WHERE id=$id AND deleted_utc IS NULL";
@@ -410,6 +633,15 @@ public sealed class SqliteClipboardRepository : IClipboardRepository
     {
         if (project is not null && (string.IsNullOrWhiteSpace(project) || project.Length > 80))
             throw new ArgumentException("Nombre de proyecto inválido.");
+        lock (_temporaryLock)
+        {
+            foreach (var id in ids.Where(i => i < 0))
+            {
+                var idx = _temporaryClips.FindIndex(c => c.Id == id);
+                if (idx >= 0)
+                    _temporaryClips[idx] = _temporaryClips[idx] with { Collection = project };
+            }
+        }
         using var connection = OpenConnection();
         using var transaction = connection.BeginTransaction();
         using var command = connection.CreateCommand();
@@ -417,7 +649,7 @@ public sealed class SqliteClipboardRepository : IClipboardRepository
         command.CommandText = "UPDATE clips SET collection=$project WHERE id=$id AND deleted_utc IS NULL";
         command.Parameters.AddWithValue("$project", (object?)project ?? DBNull.Value);
         var parameter = command.Parameters.Add("$id", SqliteType.Integer);
-        foreach (var id in ids)
+        foreach (var id in ids.Where(i => i > 0))
         {
             parameter.Value = id;
             command.ExecuteNonQuery();

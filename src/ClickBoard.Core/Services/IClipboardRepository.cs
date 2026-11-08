@@ -4,6 +4,8 @@ namespace ClickBoard.Core.Services;
 
 public interface IClipboardRepository
 {
+    bool TemporaryMode { get; set; }
+    void ClearTemporaryClips();
     Task InitializeAsync(CancellationToken cancellationToken = default);
     Task<bool> SaveAsync(ClipboardClip clip, CancellationToken cancellationToken = default);
     Task<ClipboardClip?> GetByIdAsync(long clipId, CancellationToken cancellationToken = default);

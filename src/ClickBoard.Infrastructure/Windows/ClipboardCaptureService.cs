@@ -45,7 +45,12 @@ public sealed class ClipboardCaptureService(
             return true;
         }
 
-        using var quota = await StorageQuota.AcquireAsync((clip.ImageBytes?.LongLength ?? 0) + (long)(clip.TextContent?.Length ?? 0) * 2 + (long)(clip.HtmlContent?.Length ?? 0) * 2 + (long)(clip.RtfContent?.Length ?? 0) * 2 + 65536, cancellationToken);
+        if (!repository.TemporaryMode)
+        {
+            using var quota = await StorageQuota.AcquireAsync((clip.ImageBytes?.LongLength ?? 0) + (long)(clip.TextContent?.Length ?? 0) * 2 + (long)(clip.HtmlContent?.Length ?? 0) * 2 + (long)(clip.RtfContent?.Length ?? 0) * 2 + 65536, cancellationToken);
+            await repository.SaveAsync(clip, cancellationToken);
+            return true;
+        }
         await repository.SaveAsync(clip, cancellationToken);
         return true;
     }
@@ -67,6 +72,22 @@ public sealed class ClipboardCaptureService(
         }
         if ( sourcePaths.Length == 0 )
             throw new ClipboardCaptureException("No se encontraron archivos para guardar.");
+
+        if (repository.TemporaryMode)
+        {
+            var tempHash = await ComputeFilesHashAsync(sourcePaths, maximumBytes, cancellationToken);
+            var tempPreviewImage = sourcePaths.Length == 1 ? FilePreviewHelper.TryExtractPreviewImage(sourcePaths[0]) : null;
+            var tempClip = clip with
+            {
+                PreviewText = FilePreviewHelper.BuildShortPreview(sourcePaths),
+                TextContent = FilePreviewHelper.BuildFilesSummary(sourcePaths),
+                ImageBytes = tempPreviewImage,
+                ThumbnailBytes = tempPreviewImage is null ? null : ImageThumbnail.Create(tempPreviewImage),
+                ContentHash = tempHash
+            };
+            await repository.SaveAsync(tempClip, cancellationToken);
+            return;
+        }
 
         var totalSourceBytes = sourcePaths.Sum(path => new FileInfo(path).Length);
         IDisposable? quota = null;
@@ -125,8 +146,13 @@ public sealed class ClipboardCaptureService(
                     }
                     contents.Add(Path.GetFileName(sourcePaths[index]) + ":" + Convert.ToHexString(fileHash.GetHashAndReset()));
                 }
+                var previewImage = copiedFiles.Count == 1 ? FilePreviewHelper.TryExtractPreviewImage(copiedFiles[0]) : null;
                 var savedClip = clip with
                 {
+                    PreviewText = FilePreviewHelper.BuildShortPreview(copiedFiles),
+                    TextContent = FilePreviewHelper.BuildFilesSummary(copiedFiles),
+                    ImageBytes = previewImage,
+                    ThumbnailBytes = previewImage is null ? null : ImageThumbnail.Create(previewImage),
                     FilesJson = JsonSerializer.Serialize(copiedFiles),
                     ContentHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(contents.OrderBy(value => value, StringComparer.Ordinal)))))
                 };
