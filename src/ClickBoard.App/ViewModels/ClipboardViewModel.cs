@@ -492,9 +492,10 @@ public partial class ClipboardViewModel : ObservableObject, IDisposable
 
     public void ToggleJsonFormatting()
     {
-        if (!CanFormatJson || _selectedPayload?.TextContent is not { } source)
+        if (!CanFormatJson || _selectedPayload?.TextContent is not { } original)
             return;
 
+        var source = _transformedText ?? original;
         using var document = JsonDocument.Parse(source);
         RememberTransform();
         _jsonFormatted = !_jsonFormatted;
@@ -527,7 +528,10 @@ public partial class ClipboardViewModel : ObservableObject, IDisposable
             "lower" => source.ToLowerInvariant(),
             "remove-empty-lines" => string.Join(Environment.NewLine, source.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n').Where(line => !string.IsNullOrWhiteSpace(line))),
             "distinct-lines" => string.Join(Environment.NewLine, source.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n').Distinct(StringComparer.Ordinal)),
-            "template" => VariablePattern.Replace(original, match => Variables.FirstOrDefault(variable => variable.Name == match.Groups[1].Value)?.Value ?? match.Value),
+            "template" => VariablePattern.Replace(original, match =>
+                Variables.FirstOrDefault(variable => variable.Name == match.Groups[1].Value) is { Value.Length: > 0 } filled
+                    ? filled.Value
+                    : match.Value),
             "original" => null,
             _ => source
         };

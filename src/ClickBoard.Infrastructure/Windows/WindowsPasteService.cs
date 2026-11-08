@@ -15,7 +15,8 @@ public sealed class WindowsPasteService(ForegroundWindowTracker foregroundWindow
     public const string InternalClipboardFormat = "ClickBoard.InternalClipboard";
     private readonly SemaphoreSlim _pasteGate = new(1, 1);
     public IntPtr CaptureTargetWindow() => foregroundWindowTracker.LastExternalWindow;
-    public string DestinationLabel => ForegroundWindowTracker.GetProcessName(CaptureTargetWindow()) is { } name ? "Pegar en " + name : "Pegar clip";
+    public string? TargetApplicationName => ForegroundWindowTracker.GetFriendlyApplicationName(CaptureTargetWindow());
+    public string DestinationLabel => TargetApplicationName is { } name ? "Pegar en " + name : "Pegar clip";
 
     public async Task CopyAsync(ClipboardClip clip, CancellationToken cancellationToken = default)
     {

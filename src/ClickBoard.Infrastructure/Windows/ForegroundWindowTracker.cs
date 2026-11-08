@@ -41,6 +41,31 @@ public sealed class ForegroundWindowTracker : IDisposable
         }
     }
 
+    public static string? GetFriendlyApplicationName(IntPtr window)
+    {
+        if (window == IntPtr.Zero) return null;
+        GetWindowThreadProcessId(window, out var id);
+        if (id == 0 || id == Environment.ProcessId) return null;
+        try
+        {
+            using var process = Process.GetProcessById((int)id);
+            try
+            {
+                var description = process.MainModule?.FileVersionInfo.FileDescription?.Trim();
+                if (!string.IsNullOrWhiteSpace(description))
+                    return description;
+            }
+            catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException or NotSupportedException)
+            {
+            }
+            return process.ProcessName;
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return null;
+        }
+    }
+
     public (string Process, string Title)? GetActiveContext()
     {
         var window = GetForegroundWindow();
